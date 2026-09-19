@@ -1,0 +1,14 @@
+{
+  "name": "@lingo-daily/ng-bricks",
+  "version": "0.0.1",
+  "peerDependencies": {
+    "@angular/common": "^22.1.0",
+    "@angular/core": "^22.1.0",
+    "@angular/cdk": "^22.1.0",
+    "@angular/material": "^22.1.0"
+  },
+  "dependencies": {
+    "tslib": "^2.3.0"
+  },
+  "sideEffects": false
+}
