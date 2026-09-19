@@ -2,7 +2,27 @@
   [selectedIndex]="selectedTabIndex()"
   (selectedIndexChange)="selectedTabIndex.set($event)"
 >
-  <mat-tab [label]="fileTabLabel()"></mat-tab>
+  <mat-tab [label]="fileTabLabel()">
+    <input
+      #fileInput
+      type="file"
+      hidden
+      [multiple]="multiple()"
+      (change)="onFilesSelected($event)"
+    />
+    <button mat-stroked-button type="button" (click)="fileInput.click()">
+      {{ uploadButtonLabel() }}
+    </button>
+    <div
+      class="drop-zone"
+      [class.drop-zone--active]="isDragOver()"
+      (dragover)="onDragOver($event)"
+      (dragleave)="onDragLeave($event)"
+      (drop)="onDrop($event)"
+    >
+      {{ dropZoneLabel() }}
+    </div>
+  </mat-tab>
   <mat-tab [label]="urlTabLabel()">
     @for (control of urlControls(); track control) {
       <mat-form-field>

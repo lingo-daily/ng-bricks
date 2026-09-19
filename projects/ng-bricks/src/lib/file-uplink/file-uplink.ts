@@ -39,6 +39,8 @@ export class FileUplink {
   readonly urlInputLabel = input('URL');
   readonly invalidUrlErrorLabel = input('Please enter a valid URL.');
   readonly addUrlButtonLabel = input('Add another URL');
+  readonly uploadButtonLabel = input('Upload');
+  readonly dropZoneLabel = input('Drag and drop files here');
 
   protected readonly selectedTabIndex = signal(0);
   protected readonly isFileMode = computed(() => this.selectedTabIndex() === 0);
@@ -48,6 +50,7 @@ export class FileUplink {
 
   protected readonly selectedFiles = signal<File[]>([]);
   protected readonly selectedUrls = signal<string[]>([]);
+  protected readonly isDragOver = signal(false);
 
   readonly submit = output<FileUplinkSubmitPayload>();
 
@@ -63,6 +66,39 @@ export class FileUplink {
     }
     this.urlFormArray.push(this.createUrlControl());
     this.urlControls.set(this.urlFormArray.controls);
+  }
+
+  protected onFilesSelected(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.addFiles(Array.from(input.files ?? []));
+    input.value = '';
+  }
+
+  protected onDragOver(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragOver.set(true);
+  }
+
+  protected onDragLeave(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragOver.set(false);
+  }
+
+  protected onDrop(event: DragEvent): void {
+    event.preventDefault();
+    this.isDragOver.set(false);
+    this.addFiles(Array.from(event.dataTransfer?.files ?? []));
+  }
+
+  private addFiles(files: File[]): void {
+    if (files.length === 0) {
+      return;
+    }
+    if (this.multiple()) {
+      this.selectedFiles.update((existing) => [...existing, ...files]);
+    } else {
+      this.selectedFiles.set([files[0]]);
+    }
   }
 
   clear(): void {
