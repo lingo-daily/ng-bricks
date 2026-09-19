@@ -40,3 +40,17 @@
     }
   </mat-tab>
 </mat-tab-group>
+
+@if (preview(); as p) {
+  @switch (p.kind) {
+    @case ('image') {
+      <img class="preview" [src]="p.src" [alt]="previewAltLabel()" />
+    }
+    @case ('audio') {
+      <audio class="preview" [src]="p.src" controls></audio>
+    }
+    @case ('video') {
+      <video class="preview" [src]="p.src" controls></video>
+    }
+  }
+}

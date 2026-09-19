@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, effect, input, output, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormArray, FormControl, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -17,6 +17,25 @@ function urlValidator(control: AbstractControl<string>): ValidationErrors | null
   } catch {
     return { invalidUrl: true };
   }
+}
+
+type PreviewKind = 'image' | 'audio' | 'video';
+
+const PREVIEW_EXTENSIONS: Record<PreviewKind, RegExp> = {
+  image: /\.(png|jpe?g|gif|webp|svg|bmp|avif)$/i,
+  audio: /\.(mp3|wav|ogg|m4a|flac|aac)$/i,
+  video: /\.(mp4|webm|mov|ogv|mkv)$/i,
+};
+
+function previewKindFromMimeType(mimeType: string): PreviewKind | null {
+  const [type] = mimeType.split('/');
+  return type === 'image' || type === 'audio' || type === 'video' ? type : null;
+}
+
+function previewKindFromUrl(url: string): PreviewKind | null {
+  const path = url.split(/[?#]/)[0];
+  const kinds = Object.keys(PREVIEW_EXTENSIONS) as PreviewKind[];
+  return kinds.find((kind) => PREVIEW_EXTENSIONS[kind].test(path)) ?? null;
 }
 
 export interface FileUplinkSubmitPayload {
@@ -41,6 +60,7 @@ export class FileUplink {
   readonly addUrlButtonLabel = input('Add another URL');
   readonly uploadButtonLabel = input('Upload');
   readonly dropZoneLabel = input('Drag and drop files here');
+  readonly previewAltLabel = input('Preview');
 
   protected readonly selectedTabIndex = signal(0);
   protected readonly isFileMode = computed(() => this.selectedTabIndex() === 0);
@@ -52,11 +72,45 @@ export class FileUplink {
   protected readonly selectedUrls = signal<string[]>([]);
   protected readonly isDragOver = signal(false);
 
+  protected readonly previewFile = computed(() =>
+    this.isFileMode() && this.selectedFiles().length === 1 ? this.selectedFiles()[0] : null,
+  );
+  protected readonly previewUrl = computed(() =>
+    !this.isFileMode() && this.selectedUrls().length === 1 ? this.selectedUrls()[0] : null,
+  );
+  private readonly previewFileObjectUrl = signal<string | null>(null);
+
+  protected readonly preview = computed<{ kind: PreviewKind; src: string } | null>(() => {
+    const url = this.previewUrl();
+    if (url !== null) {
+      const kind = previewKindFromUrl(url);
+      return kind ? { kind, src: url } : null;
+    }
+    const file = this.previewFile();
+    const objectUrl = this.previewFileObjectUrl();
+    if (file !== null && objectUrl !== null) {
+      const kind = previewKindFromMimeType(file.type);
+      return kind ? { kind, src: objectUrl } : null;
+    }
+    return null;
+  });
+
   readonly submit = output<FileUplinkSubmitPayload>();
 
   constructor() {
     this.urlFormArray.valueChanges.pipe(takeUntilDestroyed()).subscribe((values) => {
       this.selectedUrls.set(values.map((value) => value.trim()).filter((value) => value.length > 0));
+    });
+
+    effect((onCleanup) => {
+      const file = this.previewFile();
+      if (!file) {
+        this.previewFileObjectUrl.set(null);
+        return;
+      }
+      const objectUrl = URL.createObjectURL(file);
+      this.previewFileObjectUrl.set(objectUrl);
+      onCleanup(() => URL.revokeObjectURL(objectUrl));
     });
   }
 
