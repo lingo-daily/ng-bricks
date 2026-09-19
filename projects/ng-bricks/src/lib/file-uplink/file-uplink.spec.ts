@@ -1,16 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { FilesUplink } from './files-uplink';
+import { FileUplink } from './file-uplink';
 
-describe('FilesUplink', () => {
-  let component: FilesUplink;
-  let fixture: ComponentFixture<FilesUplink>;
+describe('FileUplink', () => {
+  let component: FileUplink;
+  let fixture: ComponentFixture<FileUplink>;
 
   beforeEach(async () => {
     await TestBed.configureTestingModule({
-      imports: [FilesUplink],
+      imports: [FileUplink],
     }).compileComponents();
 
-    fixture = TestBed.createComponent(FilesUplink);
+    fixture = TestBed.createComponent(FileUplink);
     component = fixture.componentInstance;
     await fixture.whenStable();
   });

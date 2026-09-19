@@ -2,4 +2,4 @@
  * Public API Surface of ng-bricks
  */
 
-export * from './lib/files-uplink/files-uplink';
+export * from './lib/file-uplink/file-uplink';
