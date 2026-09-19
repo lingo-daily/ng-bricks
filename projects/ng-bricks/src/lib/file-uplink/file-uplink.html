@@ -54,3 +54,7 @@
     }
   }
 }
+
+<button mat-flat-button type="button" [disabled]="shouldDisableSubmit()" (click)="onSubmit()">
+  {{ submitButtonLabel() }}
+</button>
