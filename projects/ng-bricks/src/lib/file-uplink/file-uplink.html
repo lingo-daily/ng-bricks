@@ -26,7 +26,8 @@
       (dragleave)="onDragLeave($event)"
       (drop)="onDrop($event)"
     >
-      {{ dropZoneLabel() }}
+      <mat-icon class="material-symbols-outlined">note_stack_add</mat-icon>
+      <p>{{ dropZoneLabel() }}</p>
     </div>
     @if (selectedFiles().length > 0) {
       <mat-chip-set [attr.aria-label]="selectedFilesLabel()">
