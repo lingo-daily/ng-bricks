@@ -18,9 +18,13 @@ name: Version bump
 # re-pushes to the same PR are a no-op once the branch already carries that
 # version.
 #
-# Pushing with the default GITHUB_TOKEN does not trigger another workflow run
-# (GitHub does not chain workflows off GITHUB_TOKEN-authored events), so this
-# cannot loop.
+# Pushing with the default GITHUB_TOKEN does not trigger other workflow runs
+# (GitHub does not chain workflows off GITHUB_TOKEN-authored events) — so if
+# this repo has required status checks on the PR, they'd never re-run against
+# the bump commit and the PR would be stuck. To avoid that, the checkout
+# below authenticates with a PAT (VERSION_BUMP_PAT) instead of the default
+# token, so the push behaves like a normal user push and re-triggers CI.
+# The PAT only needs Contents: read/write on this repo.
 
 on:
   pull_request:
@@ -42,6 +46,8 @@ jobs:
           ref: ${{ github.head_ref }}
           # Need main's package.json too, to compute the base version.
           fetch-depth: 0
+          # PAT so the push below re-triggers required-check workflows.
+          token: ${{ secrets.VERSION_BUMP_PAT }}
 
       - name: Compute and apply the target version
         env:
