@@ -168,6 +168,35 @@ describe('FileUplink', () => {
     });
   });
 
+  describe('remove URL button', () => {
+    it('hides the remove button when there is only one URL row', async () => {
+      await selectUrlTab();
+      expect(fixture.nativeElement.querySelector('[aria-label="Remove URL"]')).toBeNull();
+    });
+
+    it('removes a URL row when its remove button is clicked', async () => {
+      await fixture.componentRef.setInput('multiple', true);
+      await selectUrlTab();
+      await setUrlInputValue(urlInputs()[0], 'https://example.com/a.png');
+
+      findButtonByText('Add another URL')?.click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+      await setUrlInputValue(urlInputs()[1], 'https://example.com/b.png');
+      expect(urlInputs().length).toBe(2);
+
+      const removeButtons: HTMLElement[] = Array.from(
+        fixture.nativeElement.querySelectorAll('[aria-label="Remove URL"]'),
+      );
+      removeButtons[0].click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(urlInputs().length).toBe(1);
+      expect(urlInputs()[0].value).toBe('https://example.com/b.png');
+    });
+  });
+
   describe('single-vs-multiple preview switching', () => {
     it('shows a preview for exactly one selected image and hides it once a second is added', async () => {
       await fixture.componentRef.setInput('multiple', true);

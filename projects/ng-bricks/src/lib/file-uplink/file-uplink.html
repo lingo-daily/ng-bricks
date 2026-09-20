@@ -36,13 +36,25 @@
   </mat-tab>
   <mat-tab [label]="urlTabLabel()">
     @for (control of urlControls(); track control) {
-      <mat-form-field>
-        <mat-label>{{ urlInputLabel() }}</mat-label>
-        <input matInput type="url" [formControl]="control" />
-        @if (control.invalid && (control.dirty || control.touched)) {
-          <mat-error>{{ invalidUrlErrorLabel() }}</mat-error>
+      <div class="url-row">
+        <mat-form-field>
+          <mat-label>{{ urlInputLabel() }}</mat-label>
+          <input matInput type="url" [formControl]="control" />
+          @if (control.invalid && (control.dirty || control.touched)) {
+            <mat-error>{{ invalidUrlErrorLabel() }}</mat-error>
+          }
+        </mat-form-field>
+        @if (urlControls().length > 1) {
+          <button
+            mat-icon-button
+            type="button"
+            [attr.aria-label]="removeUrlButtonLabel()"
+            (click)="removeUrlControl(control)"
+          >
+            <mat-icon>delete</mat-icon>
+          </button>
         }
-      </mat-form-field>
+      </div>
     }
     @if (multiple()) {
       <button mat-stroked-button type="button" (click)="addUrlControl()">

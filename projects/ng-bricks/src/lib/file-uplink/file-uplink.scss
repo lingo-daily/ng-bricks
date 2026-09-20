@@ -16,6 +16,12 @@
   }
 }
 
+.url-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 mat-chip-set {
   display: block;
   margin-top: 8px;

@@ -69,6 +69,7 @@ export class FileUplink {
   readonly urlInputLabel = input('URL');
   readonly invalidUrlErrorLabel = input('Please enter a valid URL.');
   readonly addUrlButtonLabel = input('Add another URL');
+  readonly removeUrlButtonLabel = input('Remove URL');
   readonly uploadButtonLabel = input('Upload');
   readonly dropZoneLabel = input('Drag and drop files here');
   readonly selectedFilesLabel = input('Selected files');
@@ -149,6 +150,15 @@ export class FileUplink {
       return;
     }
     this.urlFormArray.push(this.createUrlControl());
+    this.urlControls.set(this.urlFormArray.controls);
+  }
+
+  protected removeUrlControl(control: FormControl<string>): void {
+    const index = this.urlFormArray.controls.indexOf(control);
+    if (index === -1) {
+      return;
+    }
+    this.urlFormArray.removeAt(index);
     this.urlControls.set(this.urlFormArray.controls);
   }
 
