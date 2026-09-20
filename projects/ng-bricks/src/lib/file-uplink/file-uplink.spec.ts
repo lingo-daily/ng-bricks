@@ -131,6 +131,43 @@ describe('FileUplink', () => {
     });
   });
 
+  describe('accept input', () => {
+    it('sets the accept attribute on the native file input', async () => {
+      await fixture.componentRef.setInput('accept', 'image/*,audio/*');
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      expect(fileInput().accept).toBe('image/*,audio/*');
+    });
+
+    it('omits the accept attribute when unset', () => {
+      expect(fileInput().hasAttribute('accept')).toBe(false);
+    });
+  });
+
+  describe('selected files chip list', () => {
+    it('renders a removable chip per selected file', async () => {
+      await fixture.componentRef.setInput('multiple', true);
+      await selectFiles([createFile('a.png', 'image/png'), createFile('b.png', 'image/png')]);
+
+      const chips: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('mat-chip'));
+      expect(chips.map((chip) => chip.textContent?.trim())).toEqual(['a.png cancel', 'b.png cancel']);
+    });
+
+    it('removes a file when its chip is removed', async () => {
+      await fixture.componentRef.setInput('multiple', true);
+      await selectFiles([createFile('a.png', 'image/png'), createFile('b.png', 'image/png')]);
+
+      const removeButtons: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('[matChipRemove]'));
+      removeButtons[0].click();
+      fixture.detectChanges();
+      await fixture.whenStable();
+
+      const chips: HTMLElement[] = Array.from(fixture.nativeElement.querySelectorAll('mat-chip'));
+      expect(chips.map((chip) => chip.textContent?.trim())).toEqual(['b.png cancel']);
+    });
+  });
+
   describe('single-vs-multiple preview switching', () => {
     it('shows a preview for exactly one selected image and hides it once a second is added', async () => {
       await fixture.componentRef.setInput('multiple', true);

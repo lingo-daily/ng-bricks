@@ -8,6 +8,7 @@
       type="file"
       hidden
       [multiple]="multiple()"
+      [attr.accept]="accept() || null"
       (change)="onFilesSelected($event)"
     />
     <button mat-stroked-button type="button" (click)="fileInput.click()">
@@ -22,6 +23,16 @@
     >
       {{ dropZoneLabel() }}
     </div>
+    @if (selectedFiles().length > 0) {
+      <mat-chip-set [attr.aria-label]="selectedFilesLabel()">
+        @for (file of selectedFiles(); track file) {
+          <mat-chip removable (removed)="removeFile(file)">
+            {{ file.name }}
+            <mat-icon matChipRemove>cancel</mat-icon>
+          </mat-chip>
+        }
+      </mat-chip-set>
+    }
   </mat-tab>
   <mat-tab [label]="urlTabLabel()">
     @for (control of urlControls(); track control) {

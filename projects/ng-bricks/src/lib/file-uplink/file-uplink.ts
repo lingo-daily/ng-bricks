@@ -2,7 +2,9 @@ import { ChangeDetectionStrategy, Component, computed, effect, input, output, si
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { AbstractControl, FormArray, FormControl, ReactiveFormsModule, ValidationErrors } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
+import { MatChipsModule } from '@angular/material/chips';
 import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatTabsModule } from '@angular/material/tabs';
 
@@ -44,7 +46,15 @@ export interface FileUplinkSubmitPayload {
 }
 
 @Component({
-  imports: [MatButtonModule, MatFormFieldModule, MatInputModule, MatTabsModule, ReactiveFormsModule],
+  imports: [
+    MatButtonModule,
+    MatChipsModule,
+    MatFormFieldModule,
+    MatIconModule,
+    MatInputModule,
+    MatTabsModule,
+    ReactiveFormsModule,
+  ],
   selector: 'ldpk-file-uplink',
   changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './file-uplink.scss',
@@ -52,6 +62,7 @@ export interface FileUplinkSubmitPayload {
 })
 export class FileUplink {
   readonly multiple = input(false);
+  readonly accept = input('');
 
   readonly fileTabLabel = input('File');
   readonly urlTabLabel = input('URL');
@@ -60,6 +71,7 @@ export class FileUplink {
   readonly addUrlButtonLabel = input('Add another URL');
   readonly uploadButtonLabel = input('Upload');
   readonly dropZoneLabel = input('Drag and drop files here');
+  readonly selectedFilesLabel = input('Selected files');
   readonly previewAltLabel = input('Preview');
   readonly submitButtonLabel = input('Submit');
 
@@ -167,6 +179,10 @@ export class FileUplink {
       return;
     }
     this.submit.emit(this.currentSelection());
+  }
+
+  protected removeFile(file: File): void {
+    this.selectedFiles.update((files) => files.filter((existing) => existing !== file));
   }
 
   private addFiles(files: File[]): void {
