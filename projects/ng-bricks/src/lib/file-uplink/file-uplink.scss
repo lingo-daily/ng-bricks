@@ -1,0 +1,59 @@
+.drop-zone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 96px;
+  margin-top: 8px;
+  padding: 16px;
+  border: 1px dashed var(--mat-sys-outline);
+  border-radius: 4px;
+  color: var(--mat-sys-on-surface-variant);
+  text-align: center;
+  cursor: pointer;
+
+  p {
+    margin: 8px 0 0;
+  }
+
+  &.drop-zone--active {
+    border-color: var(--mat-sys-primary);
+    background-color: var(--mat-sys-surface-container-highest);
+  }
+}
+
+.url-row {
+  display: flex;
+  align-items: start;
+  gap: 8px;
+
+  .remove-url-button {
+    position: relative;
+    top: 0.4em;
+  }
+}
+
+mat-chip-set {
+  display: block;
+  margin-top: 8px;
+}
+
+.preview {
+  display: block;
+  max-width: 100%;
+  margin-top: 8px;
+}
+
+img.preview {
+  width: auto;
+  height: auto;
+  max-width: min(12em, 80vw);
+  max-height: min(12em, 80vh);
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.submit-button {
+  display: block;
+  margin: 0.5em auto;
+}
