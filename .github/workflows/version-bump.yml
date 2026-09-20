@@ -1,0 +1,98 @@
+name: Version bump
+
+# Keeps projects/ng-bricks/package.json's version in step with the
+# branch-naming convention (feat/*, fix/*): a feature bumps minor, a bugfix
+# bumps patch. Anything else is left alone.
+#
+# projects/ng-bricks/package.json is the published package's manifest (name
+# @lingo-daily/ng-bricks), not the workspace root package.json, which is
+# private and unpublished.
+#
+# The bump is committed to the PR branch itself, not to main after the fact,
+# so it lands on main as part of the PR's own merge commit rather than as a
+# separate bot commit. tag-release.yml then tags that commit once it reaches
+# main.
+#
+# Idempotent by construction: the target version is recomputed from main's
+# current projects/ng-bricks/package.json plus the bump type on every run, so
+# re-pushes to the same PR are a no-op once the branch already carries that
+# version.
+#
+# Pushing with the default GITHUB_TOKEN does not trigger other workflow runs
+# (GitHub does not chain workflows off GITHUB_TOKEN-authored events) — so if
+# this repo has required status checks on the PR, they'd never re-run against
+# the bump commit and the PR would be stuck. To avoid that, the checkout
+# below authenticates with a PAT (VERSION_BUMP_PAT) instead of the default
+# token, so the push behaves like a normal user push and re-triggers CI.
+# The PAT only needs Contents: read/write on this repo.
+
+on:
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    name: Bump projects/ng-bricks/package.json
+    runs-on: ubuntu-latest
+    if: startsWith(github.head_ref, 'feat/') || startsWith(github.head_ref, 'fix/')
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref }}
+          # Need main's package.json too, to compute the base version.
+          fetch-depth: 0
+          # PAT so the push below re-triggers required-check workflows.
+          token: ${{ secrets.VERSION_BUMP_PAT }}
+
+      - name: Compute and apply the target version
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+
+          PKG_PATH="projects/ng-bricks/package.json"
+
+          if [[ "${HEAD_REF}" == feat/* ]]; then
+            BUMP=minor
+          else
+            BUMP=patch
+          fi
+
+          PKG_ON_MAIN="$(git show "origin/main:${PKG_PATH}" 2>/dev/null || true)"
+          if [ -n "${PKG_ON_MAIN}" ]; then
+            BASE_VERSION="$(echo "${PKG_ON_MAIN}" | jq -r .version)"
+          else
+            BASE_VERSION=0.0.0
+          fi
+
+          TARGET_VERSION="$(python3 - "$BASE_VERSION" "$BUMP" <<'PY'
+          import sys
+          major, minor, patch = (int(p) for p in sys.argv[1].split('.'))
+          if sys.argv[2] == 'minor':
+              major, minor, patch = major, minor + 1, 0
+          else:
+              major, minor, patch = major, minor, patch + 1
+          print(f"{major}.{minor}.{patch}")
+          PY
+          )"
+
+          CURRENT_VERSION="$(jq -r .version "${PKG_PATH}")"
+
+          if [ "${CURRENT_VERSION}" = "${TARGET_VERSION}" ]; then
+            echo "${PKG_PATH} is already at ${TARGET_VERSION}; nothing to do."
+            exit 0
+          fi
+
+          jq --arg v "${TARGET_VERSION}" '.version = $v' "${PKG_PATH}" > "${PKG_PATH}.tmp"
+          mv "${PKG_PATH}.tmp" "${PKG_PATH}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${PKG_PATH}"
+          git commit -m "chore: bump version to ${TARGET_VERSION}"
+          git push origin "HEAD:${HEAD_REF}"
