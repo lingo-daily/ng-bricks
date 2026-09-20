@@ -27,6 +27,10 @@
   align-items: start;
   gap: 8px;
 
+  mat-form-field {
+    flex: 1;
+  }
+
   .remove-url-button {
     position: relative;
     top: 0.4em;
