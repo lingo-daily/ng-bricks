@@ -31,7 +31,7 @@ describe('FileUplink', () => {
 
   function findButtonByText(text: string): HTMLButtonElement | undefined {
     const buttons: HTMLButtonElement[] = Array.from(fixture.nativeElement.querySelectorAll('button'));
-    return buttons.find((button) => button.textContent?.trim() === text);
+    return buttons.find((button) => button.textContent?.trim().includes(text));
   }
 
   function submitButton(): HTMLButtonElement {

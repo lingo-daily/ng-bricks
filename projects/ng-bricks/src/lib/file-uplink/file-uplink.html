@@ -2,7 +2,11 @@
   [selectedIndex]="selectedTabIndex()"
   (selectedIndexChange)="selectedTabIndex.set($event)"
 >
-  <mat-tab [label]="fileTabLabel()">
+  <mat-tab>
+    <ng-template mat-tab-label>
+      <mat-icon>upload</mat-icon>
+      {{ fileTabLabel() }}
+    </ng-template>
     <input
       #fileInput
       type="file"
@@ -11,12 +15,13 @@
       [attr.accept]="accept() || null"
       (change)="onFilesSelected($event)"
     />
-    <button mat-stroked-button type="button" (click)="fileInput.click()">
-      {{ uploadButtonLabel() }}
-    </button>
     <div
       class="drop-zone"
+      role="button"
+      tabindex="0"
       [class.drop-zone--active]="isDragOver()"
+      (click)="fileInput.click()"
+      (keydown)="onDropZoneKeydown($event, fileInput)"
       (dragover)="onDragOver($event)"
       (dragleave)="onDragLeave($event)"
       (drop)="onDrop($event)"
@@ -34,7 +39,11 @@
       </mat-chip-set>
     }
   </mat-tab>
-  <mat-tab [label]="urlTabLabel()">
+  <mat-tab>
+    <ng-template mat-tab-label>
+      <mat-icon>link</mat-icon>
+      {{ urlTabLabel() }}
+    </ng-template>
     @for (control of urlControls(); track control) {
       <div class="url-row">
         <mat-form-field>
@@ -79,6 +88,7 @@
 }
 
 <button mat-flat-button type="button" [disabled]="shouldDisableSubmit()" (click)="onSubmit()">
+  <mat-icon>cloud_upload</mat-icon>
   {{ submitButtonLabel() }}
 </button>
 

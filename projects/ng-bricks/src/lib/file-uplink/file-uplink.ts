@@ -70,8 +70,7 @@ export class FileUplink {
   readonly invalidUrlErrorLabel = input('Please enter a valid URL.');
   readonly addUrlButtonLabel = input('Add another URL');
   readonly removeUrlButtonLabel = input('Remove URL');
-  readonly uploadButtonLabel = input('Upload');
-  readonly dropZoneLabel = input('Drag and drop files here');
+  readonly dropZoneLabel = input('Drag files here or click to browse');
   readonly selectedFilesLabel = input('Selected files');
   readonly previewAltLabel = input('Preview');
   readonly submitButtonLabel = input('Submit');
@@ -166,6 +165,13 @@ export class FileUplink {
     const input = event.target as HTMLInputElement;
     this.addFiles(Array.from(input.files ?? []));
     input.value = '';
+  }
+
+  protected onDropZoneKeydown(event: KeyboardEvent, fileInput: HTMLInputElement): void {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      fileInput.click();
+    }
   }
 
   protected onDragOver(event: DragEvent): void {
