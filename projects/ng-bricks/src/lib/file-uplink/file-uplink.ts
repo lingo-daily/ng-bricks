@@ -103,7 +103,12 @@ export class FileUplink {
     return null;
   });
 
+  protected readonly currentSelection = computed<FileUplinkSubmitPayload>(() =>
+    this.isFileMode() ? { files: this.selectedFiles() } : { urls: this.selectedUrls() },
+  );
+
   readonly submit = output<FileUplinkSubmitPayload>();
+  readonly selectionChange = output<FileUplinkSubmitPayload>();
 
   constructor() {
     this.urlFormArray.valueChanges.pipe(takeUntilDestroyed()).subscribe((values) => {
@@ -120,6 +125,10 @@ export class FileUplink {
       const objectUrl = URL.createObjectURL(file);
       this.previewFileObjectUrl.set(objectUrl);
       onCleanup(() => URL.revokeObjectURL(objectUrl));
+    });
+
+    effect(() => {
+      this.selectionChange.emit(this.currentSelection());
     });
   }
 
@@ -157,7 +166,7 @@ export class FileUplink {
     if (this.shouldDisableSubmit()) {
       return;
     }
-    this.submit.emit(this.isFileMode() ? { files: this.selectedFiles() } : { urls: this.selectedUrls() });
+    this.submit.emit(this.currentSelection());
   }
 
   private addFiles(files: File[]): void {

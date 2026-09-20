@@ -93,6 +93,22 @@ describe('FileUplink', () => {
     });
   });
 
+  describe('selectionChange output', () => {
+    it('emits the current selection as it changes, using the same payload shape as submit', async () => {
+      const payloads: FileUplinkSubmitPayload[] = [];
+      component.selectionChange.subscribe((payload) => payloads.push(payload));
+
+      await selectFiles([createFile('a.png', 'image/png')]);
+      expect(payloads.at(-1)?.files?.map((file) => file.name)).toEqual(['a.png']);
+
+      await selectUrlTab();
+      expect(payloads.at(-1)).toEqual({ urls: [] });
+
+      await setUrlInputValue(urlInputs()[0], 'https://example.com/a.png');
+      expect(payloads.at(-1)).toEqual({ urls: ['https://example.com/a.png'] });
+    });
+  });
+
   describe('submit-disabled states', () => {
     it('disables submit when no file or URL is selected', () => {
       expect(submitButton().disabled).toBe(true);
