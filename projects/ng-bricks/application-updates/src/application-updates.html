@@ -1,0 +1,22 @@
+@if (versionMessage$ | async; as versionMessage) {
+  @if (shouldShow()) {
+    <mat-card animate.enter="enter-animation" animate.leave="leave-animation">
+      <mat-card-header>
+        <mat-card-title>{{ titleLabel() }}</mat-card-title>
+        <mat-card-subtitle>
+          {{ latestVersionLabel() }}: v{{ versionMessage.latestVersion }}
+        </mat-card-subtitle>
+      </mat-card-header>
+      <mat-card-content>
+        <p>{{ currentVersionLabel() }}: v{{ versionMessage.currentVersion }}</p>
+      </mat-card-content>
+      <mat-card-actions>
+        <button [matButton]="refreshButtonAppearance()" (click)="reload()">
+          <mat-icon>refresh</mat-icon>
+          {{ refreshButtonLabel() }}
+        </button>
+        <button matButton="text" (click)="hide()">{{ laterButtonLabel() }}</button>
+      </mat-card-actions>
+    </mat-card>
+  }
+}

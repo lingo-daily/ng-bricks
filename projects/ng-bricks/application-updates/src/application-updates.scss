@@ -1,0 +1,41 @@
+mat-card-subtitle {
+  opacity: 0.62;
+  font-family: monospace;
+}
+
+mat-card-content {
+  padding-bottom: 1rem;
+  text-align: center;
+  font-family: monospace;
+}
+
+mat-card-actions {
+  justify-content: space-around;
+  gap: 1rem;
+}
+
+.enter-animation {
+  animation: fade-in 555ms;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.leave-animation {
+  animation: fade-out 333ms;
+}
+
+@keyframes fade-out {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
