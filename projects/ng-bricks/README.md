@@ -89,7 +89,8 @@ that tells the user a new version of the app has been deployed. It listens for t
 card). It also checks for updates after router navigation (debounced: 3 s in dev mode, 10 s
 otherwise). It does nothing during server-side rendering.
 
-The host element uses `position: fixed`; place it with your own styles (e.g. `bottom`/`right`).
+The component applies no positioning or layout to its host element — where it appears is up to
+the app (see [Recommended styling](#recommended-styling)).
 
 #### Prerequisites
 
@@ -115,15 +116,37 @@ import { ApplicationUpdates } from '@lingo-daily/ng-bricks';
 @Component({
   selector: 'app-root',
   imports: [ApplicationUpdates],
-  template: `<ldpk-application-updates class="updates" />`,
-  styles: `
-    .updates {
-      bottom: 1rem;
-      right: 1rem;
-    }
-  `,
+  template: `<ldpk-application-updates />`,
 })
 export class App {}
+```
+
+#### Recommended styling
+
+The host element is unstyled, so the card sits in the normal document flow unless you position it.
+Style the `ldpk-application-updates` element (or a class on it) from the consuming app.
+
+Floating in a corner (the typical setup) — pick the corner with `top`/`bottom` and
+`left`/`right`:
+
+```scss
+ldpk-application-updates {
+  position: fixed;
+  bottom: 1rem; // or top: 1rem;
+  left: 1rem; // or right: 1rem;
+  z-index: 1000; // keep it above app content
+  max-width: fit-content;
+}
+```
+
+In the document flow (e.g. inside a sidebar or settings page) — no positioning needed; optionally
+constrain the width:
+
+```scss
+ldpk-application-updates {
+  display: block;
+  max-width: fit-content;
+}
 ```
 
 #### Inputs
