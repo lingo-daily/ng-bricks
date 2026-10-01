@@ -4,6 +4,22 @@ This project was generated using [Angular CLI](https://github.com/angular/angula
 
 ## Components
 
+Each component is published as its own secondary entry point:
+
+| Component            | Import from                                  |
+| -------------------- | -------------------------------------------- |
+| `FileUplink`         | `@lingo-daily/ng-bricks/file-uplink`         |
+| `ApplicationUpdates` | `@lingo-daily/ng-bricks/application-updates` |
+
+Import from the entry point rather than the package root. Every component is still re-exported
+from `@lingo-daily/ng-bricks` for compatibility, and the root just re-exports the entry points, so
+either way bundlers only include the components you use.
+
+The reason is lazy loading: each entry point is a separate module, so a component and its Angular
+Material dependencies go into the chunk of the route that uses it. For example, an app can use
+`ApplicationUpdates` in its root component and `FileUplink` on a lazy route, and `FileUplink`'s
+tabs, chips and form fields stay out of the initial bundle.
+
 ### FileUplink
 
 `FileUplink` (selector `ldpk-file-uplink`) is a standalone Angular Material component that lets a
@@ -12,7 +28,7 @@ shows a two-tab UI (File / URL), a drag-and-drop drop zone, and a thumbnail/medi
 exactly one file or URL is selected. Showing and hiding the component (e.g. inline vs. in a dialog)
 is left to the consumer.
 
-Install and import it from the package:
+Install the package and import the component from its entry point:
 
 ```bash
 npm install @lingo-daily/ng-bricks
@@ -20,7 +36,7 @@ npm install @lingo-daily/ng-bricks
 
 ```typescript
 import { Component } from '@angular/core';
-import { FileUplink, FileUplinkSubmitPayload } from '@lingo-daily/ng-bricks';
+import { FileUplink, FileUplinkSubmitPayload } from '@lingo-daily/ng-bricks/file-uplink';
 
 @Component({
   selector: 'app-avatar-picker',
@@ -111,7 +127,7 @@ how wide it is are up to the app (see [Recommended styling](#recommended-styling
 
 ```typescript
 import { Component } from '@angular/core';
-import { ApplicationUpdates } from '@lingo-daily/ng-bricks';
+import { ApplicationUpdates } from '@lingo-daily/ng-bricks/application-updates';
 
 @Component({
   selector: 'app-root',

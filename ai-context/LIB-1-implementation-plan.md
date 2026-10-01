@@ -88,6 +88,15 @@ The component shows a Material card when the service worker reports `VERSION_REA
   `max-width`, no fixed card width); apps position it themselves (fixed in any corner or in-flow). Recommended styling
   is documented in the README (user decision, 2026-10-01; supersedes the earlier "keep fixed").
 
+- Secondary entry points (user decision, 2026-10-01): each component is its own ng-packagr entry
+  point (`projects/ng-bricks/<name>/src`, `ng-package.json`), published as
+  `@lingo-daily/ng-bricks/application-updates` and `@lingo-daily/ng-bricks/file-uplink`. The root
+  entry re-exports both. Why: testing in the-perfect-dabblers-ng (TPD-133) showed that with a
+  single FESM file, importing `ApplicationUpdates` in the app root pulled `FileUplink` and Material
+  tabs/chips/form-field into the initial bundle (+170 kB, over the 1.75 MB budget). With entry
+  points the increase is ~10 kB. The project's `sourceRoot` is now `projects/ng-bricks` so the
+  vitest builder finds specs in every entry point.
+
 ## Progress notes
 
 - [x] Step 1 – peer deps: `@angular/router`, `@angular/service-worker`, `rxjs` added as library
@@ -111,4 +120,11 @@ The component shows a Material card when the service worker reports `VERSION_REA
 Environment note: the default shell Node is v14; build/test with Node 24
 (`~/.nvm/versions/node/v24.21.0`).
 
-Remaining: open PR (`/curtail`).
+- [x] Split into secondary entry points (see Decisions); README documents the import paths.
+- [x] Tested in the-perfect-dabblers-ng on `feat/TPD-133-Use-ApplicationUpdates-from-ng-bricks`
+  via `npm link`: app builds, initial bundle 1.62 MB (baseline 1.61 MB); app tests unchanged vs
+  `main` (6 failures exist on `main` too).
+
+Remaining: manual check in the browser (`ng serve` in the app, demo via postMessage), then open
+the PR (`/curtail`). Releasing this changes import paths, so it probably needs a minor version
+bump (root imports keep working).

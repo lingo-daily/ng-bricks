@@ -15,7 +15,7 @@
     "ng-bricks": {
       "projectType": "library",
       "root": "projects/ng-bricks",
-      "sourceRoot": "projects/ng-bricks/src",
+      "sourceRoot": "projects/ng-bricks",
       "prefix": "ldpk",
       "architect": {
         "build": {
