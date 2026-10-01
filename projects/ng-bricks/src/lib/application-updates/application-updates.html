@@ -1,10 +1,6 @@
 @if (versionMessage$ | async; as versionMessage) {
   @if (shouldShow()) {
-    <mat-card
-      class="version-update-card"
-      animate.enter="enter-animation"
-      animate.leave="leave-animation"
-    >
+    <mat-card animate.enter="enter-animation" animate.leave="leave-animation">
       <mat-card-header>
         <mat-card-title>{{ titleLabel() }}</mat-card-title>
         <mat-card-subtitle>

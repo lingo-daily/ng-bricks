@@ -89,8 +89,8 @@ that tells the user a new version of the app has been deployed. It listens for t
 card). It also checks for updates after router navigation (debounced: 3 s in dev mode, 10 s
 otherwise). It does nothing during server-side rendering.
 
-The component applies no positioning or layout to its host element — where it appears is up to
-the app (see [Recommended styling](#recommended-styling)).
+The component applies no positioning, layout or width to its host element — where it appears and
+how wide it is are up to the app (see [Recommended styling](#recommended-styling)).
 
 #### Prerequisites
 
@@ -123,8 +123,9 @@ export class App {}
 
 #### Recommended styling
 
-The host element is unstyled, so the card sits in the normal document flow unless you position it.
-Style the `ldpk-application-updates` element (or a class on it) from the consuming app.
+The host element is unstyled, so the card sits in the normal document flow and its width follows
+its container unless you set one. Style the `ldpk-application-updates` element (or a class on it)
+from the consuming app. A width of `20rem` fits the card's content well.
 
 Floating in a corner (the typical setup) — pick the corner with `top`/`bottom` and
 `left`/`right`:
@@ -135,17 +136,19 @@ ldpk-application-updates {
   bottom: 1rem; // or top: 1rem;
   left: 1rem; // or right: 1rem;
   z-index: 1000; // keep it above app content
-  max-width: fit-content;
+  width: 20rem;
+  max-width: calc(100vw - 2rem); // stay on screen on narrow viewports
 }
 ```
 
-In the document flow (e.g. inside a sidebar or settings page) — no positioning needed; optionally
-constrain the width:
+In the document flow (e.g. inside a sidebar or settings page) — no positioning needed; set a width
+or let it fill its container:
 
 ```scss
 ldpk-application-updates {
   display: block;
-  max-width: fit-content;
+  width: 20rem; // omit to fill the container
+  max-width: 100%;
 }
 ```
 

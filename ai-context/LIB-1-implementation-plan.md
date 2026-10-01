@@ -84,8 +84,8 @@ The component shows a Material card when the service worker reports `VERSION_REA
 
 - Demo message string: use the prototype's `LDPK.application-updates.show-demo`, not the
   ticket's `LDPK-application-updates-show-demo` (confirmed by user, 2026-10-01).
-- Positioning: the component applies no host positioning/layout (no `position: fixed`,
-  `max-width`); apps position it themselves (fixed in any corner or in-flow). Recommended styling
+- Positioning: the component applies no host positioning/layout/width (no `position: fixed`,
+  `max-width`, no fixed card width); apps position it themselves (fixed in any corner or in-flow). Recommended styling
   is documented in the README (user decision, 2026-10-01; supersedes the earlier "keep fixed").
 
 ## Progress notes
@@ -100,7 +100,8 @@ The component shows a Material card when the service worker reports `VERSION_REA
   `takeUntilDestroyed`; exported `APPLICATION_UPDATES_SHOW_DEMO_MESSAGE`, `VersionMessage`,
   `LdpkAppData`. Extra label input `noDescriptionLabel`. Demo fallback version is `1.0.0`
   (prototype used an app-specific `1.34.16`).
-- [x] Step 4 – template/styles ported without the prototype's `:host` positioning; card still
+- [x] Step 4 – template/styles ported without the prototype's `:host` positioning or the
+  `20rem` card width; card still
   doesn't render `description` (same as prototype).
 - [x] Step 5 – public API exports.
 - [x] Step 6 – tests: `application-updates.spec.ts` (11) and `sw-update.service.spec.ts` (6).
