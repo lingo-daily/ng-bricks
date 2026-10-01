@@ -80,6 +80,88 @@ When exactly one file or URL is selected and it looks like an image, audio, or v
 is rendered above the submit button. Uploading the selected files/URLs elsewhere (e.g. to a server)
 is the consumer's responsibility.
 
+### ApplicationUpdates
+
+`ApplicationUpdates` (selector `ldpk-application-updates`) is a standalone Angular Material card
+that tells the user a new version of the app has been deployed. It listens for the service worker's
+`VERSION_READY` event, shows the installed ("yours") and deployed ("ours") versions, and offers a
+**refresh** button (activates the update and reloads the page) and a **later** button (hides the
+card). It also checks for updates after router navigation (debounced: 3 s in dev mode, 10 s
+otherwise). It does nothing during server-side rendering.
+
+The host element uses `position: fixed`; place it with your own styles (e.g. `bottom`/`right`).
+
+#### Prerequisites
+
+- The app registers the Angular service worker (`provideServiceWorker(...)`) and uses the router.
+- `ngsw-config.json` provides `appData` with a `version` (and optionally a `description`), matching
+  the exported `LdpkAppData` interface:
+
+  ```json
+  {
+    "appData": {
+      "version": "1.4.2",
+      "description": "Faster search"
+    }
+  }
+  ```
+
+#### Usage
+
+```typescript
+import { Component } from '@angular/core';
+import { ApplicationUpdates } from '@lingo-daily/ng-bricks';
+
+@Component({
+  selector: 'app-root',
+  imports: [ApplicationUpdates],
+  template: `<ldpk-application-updates class="updates" />`,
+  styles: `
+    .updates {
+      bottom: 1rem;
+      right: 1rem;
+    }
+  `,
+})
+export class App {}
+```
+
+#### Inputs
+
+| Input                | Type      | Default                                         | Description                                                    |
+| -------------------- | --------- | ----------------------------------------------- | -------------------------------------------------------------- |
+| `autoReload`         | `boolean` | `false`                                         | Activate the update and reload immediately on `VERSION_READY`. |
+| `titleLabel`         | `string`  | `'updates are ready to use'`                    | Card title.                                                    |
+| `latestVersionLabel` | `string`  | `'ours'`                                        | Label before the deployed version.                             |
+| `currentVersionLabel`| `string`  | `'yours'`                                       | Label before the version running in the browser.               |
+| `refreshButtonLabel` | `string`  | `'refresh'`                                     | Label for the refresh button.                                  |
+| `laterButtonLabel`   | `string`  | `'later'`                                       | Label for the button that hides the card.                      |
+| `noDescriptionLabel` | `string`  | `'No description'`                              | Fallback when `appData.description` is missing.                |
+| `demoDescription`    | `string`  | `'This is a demo of a version update message'`  | Description used for the demo card.                            |
+
+All labels are plain inputs so i18n stays outside the component.
+
+#### Demo
+
+The card is never shown on init. To preview it without deploying a new version, post the
+`LDPK.application-updates.show-demo` window message (exported as
+`APPLICATION_UPDATES_SHOW_DEMO_MESSAGE`), e.g. from the browser console:
+
+```javascript
+window.postMessage('LDPK.application-updates.show-demo', '*');
+```
+
+The demo's current version is read from the `data-version` attribute of the first element that has
+one (falling back to `1.0.0`), and the latest version bumps its last segment with a `-demo` suffix.
+
+#### SwUpdateService
+
+`SwUpdateService` (`providedIn: 'root'`) wraps Angular's `SwUpdate` and is exported for apps that
+need it directly: `swUpdatesWhenStable$` (version events, or nothing when the service worker is
+disabled), `isEnabled`, `checkForUpdates()` (skips overlapping checks and times out after 42 s),
+`activateUpdate()` and `reloadPage()`. If the service worker becomes unrecoverable, it reloads the
+page after 5 s.
+
 ## Code scaffolding
 
 Angular CLI includes powerful code scaffolding tools. To generate a new component, run:

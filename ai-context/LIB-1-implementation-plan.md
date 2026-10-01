@@ -88,11 +88,23 @@ The component shows a Material card when the service worker reports `VERSION_REA
 
 ## Progress notes
 
-- [ ] Step 1 – peer deps
-- [ ] Step 2 – service
-- [ ] Step 3 – component
-- [ ] Step 4 – template/styles
-- [ ] Step 5 – public API
-- [ ] Step 6 – tests
-- [ ] Step 7 – README
-- [ ] Step 8 – build & test
+- [x] Step 1 – peer deps: `@angular/router`, `@angular/service-worker`, `rxjs` added as library
+  peers; `@angular/service-worker@^22.1.7` added as root devDependency (must match installed
+  `@angular/core` exactly).
+- [x] Step 2 – service (`sw-update.service.ts`): `console.log`s gated by `isDevMode()`; added
+  `reloadPage()` so page reloads go through the service (mockable in component tests); timeout
+  timer is cleared after each check.
+- [x] Step 3 – component (`application-updates.ts`): window message via `fromEvent` +
+  `takeUntilDestroyed`; exported `APPLICATION_UPDATES_SHOW_DEMO_MESSAGE`, `VersionMessage`,
+  `LdpkAppData`. Extra label input `noDescriptionLabel`. Demo fallback version is `1.0.0`
+  (prototype used an app-specific `1.34.16`).
+- [x] Step 4 – template/styles ported; card still doesn't render `description` (same as prototype).
+- [x] Step 5 – public API exports.
+- [x] Step 6 – tests: `application-updates.spec.ts` (11) and `sw-update.service.spec.ts` (6).
+- [x] Step 7 – README section in `projects/ng-bricks/README.md`.
+- [x] Step 8 – `ng build ng-bricks` and `ng test` pass (35 tests).
+
+Environment note: the default shell Node is v14; build/test with Node 24
+(`~/.nvm/versions/node/v24.21.0`).
+
+Remaining: open PR (`/curtail`).
