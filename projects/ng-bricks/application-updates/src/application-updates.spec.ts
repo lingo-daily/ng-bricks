@@ -170,4 +170,17 @@ describe('ApplicationUpdates', () => {
     expect(card()?.textContent).toContain('Nowa wersja');
     expect(findButtonByText('odśwież')).toBeTruthy();
   });
+
+  it('uses the tonal appearance for the refresh button by default', async () => {
+    await postWindowMessage(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE);
+
+    expect(findButtonByText('refresh').classList).toContain('mat-tonal-button');
+  });
+
+  it('applies a custom refresh button appearance', async () => {
+    fixture.componentRef.setInput('refreshButtonAppearance', 'outlined');
+    await postWindowMessage(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE);
+
+    expect(findButtonByText('refresh').classList).toContain('mdc-button--outlined');
+  });
 });

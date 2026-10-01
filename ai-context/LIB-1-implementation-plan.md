@@ -125,6 +125,9 @@ Environment note: the default shell Node is v14; build/test with Node 24
   via `npm link`: app builds, initial bundle 1.62 MB (baseline 1.61 MB); app tests unchanged vs
   `main` (6 failures exist on `main` too).
 
+- [x] `refreshButtonAppearance` input (`MatButtonAppearance`, default `'tonal'`), requested after
+  TPD-133 testing (the app's old card used `outlined`).
+
 Remaining: manual check in the browser (`ng serve` in the app, demo via postMessage), then open
 the PR (`/curtail`). Releasing this changes import paths, so it probably needs a minor version
 bump (root imports keep working).

@@ -177,6 +177,7 @@ ldpk-application-updates {
 | `latestVersionLabel` | `string`  | `'ours'`                                        | Label before the deployed version.                             |
 | `currentVersionLabel`| `string`  | `'yours'`                                       | Label before the version running in the browser.               |
 | `refreshButtonLabel` | `string`  | `'refresh'`                                     | Label for the refresh button.                                  |
+| `refreshButtonAppearance` | `MatButtonAppearance` | `'tonal'` | Appearance of the refresh button: `'text'`, `'filled'`, `'elevated'`, `'outlined'` or `'tonal'`. |
 | `laterButtonLabel`   | `string`  | `'later'`                                       | Label for the button that hides the card.                      |
 | `noDescriptionLabel` | `string`  | `'No description'`                              | Fallback when `appData.description` is missing.                |
 | `demoDescription`    | `string`  | `'This is a demo of a version update message'`  | Description used for the demo card.                            |

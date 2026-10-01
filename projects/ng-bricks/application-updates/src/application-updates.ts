@@ -10,7 +10,7 @@ import {
   signal,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { MatButtonModule } from '@angular/material/button';
+import { type MatButtonAppearance, MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { NavigationEnd, Router } from '@angular/router';
@@ -62,6 +62,7 @@ export class ApplicationUpdates {
   readonly latestVersionLabel = input('ours');
   readonly currentVersionLabel = input('yours');
   readonly refreshButtonLabel = input('refresh');
+  readonly refreshButtonAppearance = input<MatButtonAppearance>('tonal');
   readonly laterButtonLabel = input('later');
   readonly noDescriptionLabel = input('No description');
   readonly demoDescription = input('This is a demo of a version update message');

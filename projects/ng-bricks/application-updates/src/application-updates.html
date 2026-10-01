@@ -11,7 +11,7 @@
         <p>{{ currentVersionLabel() }}: v{{ versionMessage.currentVersion }}</p>
       </mat-card-content>
       <mat-card-actions>
-        <button matButton="tonal" (click)="reload()">
+        <button [matButton]="refreshButtonAppearance()" (click)="reload()">
           <mat-icon>refresh</mat-icon>
           {{ refreshButtonLabel() }}
         </button>
