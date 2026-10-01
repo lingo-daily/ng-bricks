@@ -19,7 +19,8 @@ The component shows a Material card when the service worker reports `VERSION_REA
 "refresh" (activate update + reload) and "later" (hide). Requirements from the ticket:
 
 - Ship both the component and the service from the package.
-- Subscribe to the window message `LDPK-application-updates-show-demo` to show a demo card.
+- Subscribe to the window message `LDPK.application-updates.show-demo` to show a demo card
+  (ticket text says `LDPK-application-updates-show-demo`; decided to keep the prototype's name).
 - Do **not** show the demo on init — only in response to that message.
 
 ## Prototype → library differences to apply
@@ -28,8 +29,8 @@ The component shows a Material card when the service worker reports `VERSION_REA
   `application-updates.ts/.html/.scss/.spec.ts`, no `standalone: true`, no `Component` suffix.
 - Labels become `input()`s with English defaults instead of `i18n` attributes, so i18n stays
   outside the component (same approach as `FileUplink`, see `projects/ng-bricks/README.md`).
-- Demo message string changes from the prototype's `LDPK.application-updates.show-demo` to the
-  ticket's `LDPK-application-updates-show-demo` (export it as a constant).
+- Keep the prototype's demo message string `LDPK.application-updates.show-demo` (export it as a
+  constant).
 - Replace the manual `addEventListener`/`ngOnDestroy` with a `fromEvent(window, 'message')`
   subscription using `takeUntilDestroyed()` (browser only).
 - Keep the `Observable` + `async` pipe pattern for `versionMessage$` (constitution: avoid
@@ -54,7 +55,7 @@ The component shows a Material card when the service worker reports `VERSION_REA
    - `versionMessage$` from `VERSION_READY` events mapped via `appData` (`LdpkAppData`), merged
      with the demo subject; `shouldShow` signal; `reload()`, `hide()`, `showDemo()` as in the
      prototype (demo version derived from `[data-version]` element).
-   - Window `message` listener for `LDPK-application-updates-show-demo` → `showDemo()`. No demo on
+   - Window `message` listener for `LDPK.application-updates.show-demo` → `showDemo()`. No demo on
      init.
    - Export `VersionMessage`, `LdpkAppData` types and the demo message constant.
 4. **Template/styles** — `application-updates.html` / `application-updates.scss`: port the
@@ -67,7 +68,7 @@ The component shows a Material card when the service worker reports `VERSION_REA
    `SwUpdate` stubbed (`isEnabled`, `versionUpdates` Subject, `activateUpdate`, `checkForUpdate`,
    `unrecoverable`) and `provideRouter([])`:
    - nothing rendered on init (no demo without the message);
-   - posting `LDPK-application-updates-show-demo` shows the card with demo versions;
+   - posting `LDPK.application-updates.show-demo` shows the card with demo versions;
    - other messages are ignored;
    - a `VERSION_READY` event shows current/latest versions;
    - "later" hides; "refresh" calls `activateUpdate` and reloads (stub reload);
@@ -76,15 +77,14 @@ The component shows a Material card when the service worker reports `VERSION_REA
 7. **Docs** — add an `ApplicationUpdates` section to `projects/ng-bricks/README.md`: prerequisites
    (`provideServiceWorker`, `appData.version`/`description` in `ngsw-config.json`), usage,
    inputs table, and how to trigger the demo
-   (`window.postMessage('LDPK-application-updates-show-demo', '*')`).
+   (`window.postMessage('LDPK.application-updates.show-demo', '*')`).
 8. **Verify** — `ng build ng-bricks` and `ng test` pass.
 
-## Open questions
+## Decisions
 
-- Message string: ticket says `LDPK-application-updates-show-demo`, prototype uses
-  `LDPK.application-updates.show-demo`. Plan follows the ticket — confirm.
-- Should the component position itself (`position: fixed` on `:host`, as in the prototype) or
-  leave placement to the consumer like `FileUplink`? Plan keeps the prototype's `:host` styles.
+- Demo message string: use the prototype's `LDPK.application-updates.show-demo`, not the
+  ticket's `LDPK-application-updates-show-demo` (confirmed by user, 2026-10-01).
+- Positioning: keep the prototype's `position: fixed` on `:host` (confirmed by user, 2026-10-01).
 
 ## Progress notes
 
