@@ -4,7 +4,10 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "outDir": "../../out-tsc/spec",
-    "types": ["vitest/globals"]
+    "types": ["vitest/globals"],
+    "paths": {
+      "@lingo-daily/ng-bricks/*": ["./*/src/public-api.ts"]
+    }
   },
   "include": ["**/*.d.ts", "**/*.spec.ts"]
 }

@@ -8,3 +8,4 @@
 
 export * from '@lingo-daily/ng-bricks/application-updates';
 export * from '@lingo-daily/ng-bricks/file-uplink';
+export * from '@lingo-daily/ng-bricks/theme-showcase';

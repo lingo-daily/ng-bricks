@@ -1,0 +1,213 @@
+<div class="showcase-container">
+  <h1>Theme Showcase H1</h1>
+  <p class="mat-body-1">Reviewing application typography and color palettes.</p>
+
+  <section>
+    <h2>Buttons H2</h2>
+    <h3>Colors (Legacy Way) H3</h3>
+    @for (appearance of buttonAppearances; track appearance) {
+      <h4>Appearance: {{ appearance }} H4</h4>
+      <div class="row" [class]="appearance">
+        <button [matButton]="appearance">No Color</button>
+        @for (color of buttonColors; track color) {
+          <button [matButton]="appearance" [color]="color">{{ color | titlecase }}</button>
+        }
+        <button [matButton]="appearance" disabled>Disabled</button>
+      </div>
+    }
+
+    <h3>Classes (Modern Way) H3</h3>
+    @for (buttonClass of buttonClasses.controls; track buttonClass; let index = $index) {
+      <h4>Button Class: {{ buttonClass.value }} H4</h4>
+
+      <mat-form-field appearance="fill">
+        <mat-label>Button Class Name {{ index + 1 }}</mat-label>
+        <input matInput placeholder="Ex. accent" [formControl]="buttonClass" />
+      </mat-form-field>
+
+      <div class="row" [class]="buttonClass.value">
+        @for (appearance of buttonAppearances; track appearance) {
+          <button [matButton]="appearance" [class]="buttonClass.value">
+            {{ appearance | titlecase }}
+            {{ buttonClass.value | titlecase }}
+          </button>
+        }
+      </div>
+    }
+
+    <div class="row">
+      <button matButton="outlined" (click)="addButtonClass()">
+        <mat-icon>add</mat-icon>
+        Add Button Class
+      </button>
+    </div>
+
+    <div class="row">
+      <button matButton="elevated">Elevated</button>
+      <button matButton="elevated" color="primary">Primary</button>
+      <button matButton="elevated" color="accent">Accent</button>
+      <button matButton="elevated" color="warn">Warn</button>
+    </div>
+
+    <div class="row">
+      <button matButton="filled" (click)="openSnackBar('This is a default snackbar')">
+        Snackbar
+      </button>
+
+      <button
+        matButton="filled"
+        class="primary"
+        (click)="openSnackBar('This is a success snackbar', 'success')"
+      >
+        Success
+      </button>
+
+      <button
+        matButton="filled"
+        class="accent"
+        (click)="openSnackBar('This is an info snackbar', 'info')"
+      >
+        Info
+      </button>
+
+      <button
+        matButton="filled"
+        class="warn"
+        (click)="openSnackBar('This is an error snackbar', 'error')"
+      >
+        Error
+      </button>
+    </div>
+
+    <h3>FAB and miniFAB</h3>
+    <div class="row">
+      <button matFab color="primary" aria-label="Add">
+        <mat-icon>add</mat-icon>
+      </button>
+      <button matFab color="accent" aria-label="Edit">
+        <mat-icon>edit</mat-icon>
+      </button>
+      <button matMiniFab color="warn" aria-label="Delete">
+        <mat-icon>delete</mat-icon>
+      </button>
+    </div>
+  </section>
+
+  <mat-divider class="spacer" />
+
+  <section>
+    <h2>Form Inputs</h2>
+    <div class="row" [class]="formClass.value">
+      <mat-form-field appearance="fill">
+        <mat-label>Class Name</mat-label>
+        <input matInput placeholder="Ex. contact" [formControl]="formClass" />
+        <mat-icon matSuffix>favorite</mat-icon>
+        <mat-hint>Give your form a class!</mat-hint>
+      </mat-form-field>
+
+      <mat-form-field appearance="outline">
+        <mat-label>Outline Input</mat-label>
+        <input matInput placeholder="Ex. Pizza" />
+      </mat-form-field>
+
+      <mat-checkbox color="primary" [checked]="true">Primary Checkbox</mat-checkbox>
+      <mat-checkbox color="warn" [checked]="true">Warn Checkbox</mat-checkbox>
+    </div>
+  </section>
+
+  <mat-divider class="spacer" />
+
+  <section>
+    <h2>Feedback</h2>
+    <div class="row">
+      <mat-progress-bar mode="indeterminate" />
+      <mat-progress-spinner mode="indeterminate" />
+    </div>
+  </section>
+
+  <section>
+    <h2>Cards</h2>
+    <div class="row">
+      @for (appearance of cardAppearances; track appearance) {
+        <mat-card class="showcase-card" [appearance]="appearance">
+          <mat-card-header>
+            <mat-card-title>{{ appearance | titlecase }} — Card Title</mat-card-title>
+            <mat-card-subtitle>Subtitle</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content>
+            <p>
+              This is a <strong>{{ appearance }}</strong>
+              {{ appearance === 'raised' ? '(elevated, default)' : '' }}
+              card content showing body text.
+            </p>
+            <mat-chip-set>
+              <mat-chip>Chip One</mat-chip>
+              <mat-chip color="accent">Accent Chip</mat-chip>
+            </mat-chip-set>
+          </mat-card-content>
+          <mat-card-actions>
+            <button matButton>LIKE</button>
+            <button matButton>SHARE</button>
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+  </section>
+
+  <section>
+    <h2>Nested Cards</h2>
+    <div class="row">
+      @for (outerAppearance of cardAppearances; track outerAppearance) {
+        <mat-card class="showcase-card" [appearance]="outerAppearance">
+          <mat-card-header>
+            <mat-card-title>{{ outerAppearance | titlecase }} — Outer Card</mat-card-title>
+            <mat-card-subtitle>Subtitle</mat-card-subtitle>
+          </mat-card-header>
+          <mat-card-content class="outer-card-content">
+            @for (appearance of cardAppearances; track appearance) {
+              @if (appearance !== outerAppearance) {
+                <mat-card class="showcase-card" [appearance]="appearance">
+                  <mat-card-header>
+                    <mat-card-title>{{ appearance | titlecase }} — Card Title</mat-card-title>
+                    <mat-card-subtitle>Subtitle</mat-card-subtitle>
+                  </mat-card-header>
+                  <mat-card-content>
+                    <p>
+                      This is a {{ appearance }}
+                      {{ appearance === 'raised' ? '(default)' : '' }}
+                      card content showing body text.
+                    </p>
+                    <mat-chip-set>
+                      <mat-chip>Chip One</mat-chip>
+                      <mat-chip color="accent">Accent Chip</mat-chip>
+                    </mat-chip-set>
+                  </mat-card-content>
+                  <mat-card-actions>
+                    <button matButton>LIKE</button>
+                    <button matButton>SHARE</button>
+                  </mat-card-actions>
+                </mat-card>
+              }
+            }
+          </mat-card-content>
+          <mat-card-actions>
+            <button matButton>LIKE</button>
+            <button matButton>SHARE</button>
+          </mat-card-actions>
+        </mat-card>
+      }
+    </div>
+  </section>
+
+  <section>
+    <h2>Window Messages</h2>
+    <div class="row">
+      <mat-form-field appearance="fill" class="message-field">
+        <mat-label>Message</mat-label>
+        <input matInput [formControl]="windowMessage" />
+      </mat-form-field>
+
+      <button matButton="filled" (click)="postWindowMessage()">Post</button>
+    </div>
+  </section>
+</div>
