@@ -1,12 +1,13 @@
 {
   "name": "ng-bricks",
-  "version": "0.0.0",
+  "version": "1.3.0",
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
-    "test": "ng test"
+    "test": "ng test",
+    "version:sync": "node sync-version.mjs"
   },
   "private": true,
   "packageManager": "npm@11.19.0",
