@@ -10,6 +10,7 @@ Each component is published as its own secondary entry point:
 | -------------------- | -------------------------------------------- |
 | `FileUplink`         | `@lingo-daily/ng-bricks/file-uplink`         |
 | `ApplicationUpdates` | `@lingo-daily/ng-bricks/application-updates` |
+| `ThemeShowcase`      | `@lingo-daily/ng-bricks/theme-showcase`      |
 
 Import from the entry point rather than the package root. Every component is still re-exported
 from `@lingo-daily/ng-bricks` for compatibility, and the root just re-exports the entry points, so
@@ -204,6 +205,36 @@ need it directly: `swUpdatesWhenStable$` (version events, or nothing when the se
 disabled), `isEnabled`, `checkForUpdates()` (skips overlapping checks and times out after 42 s),
 `activateUpdate()` and `reloadPage()`. If the service worker becomes unrecoverable, it reloads the
 page after 5 s.
+
+### ThemeShowcase
+
+`ThemeShowcase` (selector `ldpk-theme-showcase`) is a standalone page for reviewing an app's Angular
+Material theme. It renders headings and body text, buttons in every appearance and color, FABs,
+snackbars, form fields, checkboxes, progress indicators, chips and (nested) cards in every
+appearance. You can type custom CSS class names into it to preview class-based button and form
+styling.
+
+It also has a **Window Messages** section that posts any message to the window. Its default is
+`APPLICATION_UPDATES_SHOW_DEMO_MESSAGE`, so it can trigger the
+[`ApplicationUpdates` demo](#demo).
+
+The component pulls in many Material modules, so put it on a lazy route rather than in the
+initial bundle:
+
+```typescript
+import { Routes } from '@angular/router';
+
+export const routes: Routes = [
+  {
+    path: 'theme-showcase',
+    loadComponent: () =>
+      import('@lingo-daily/ng-bricks/theme-showcase').then((m) => m.ThemeShowcase),
+  },
+];
+```
+
+The snackbar buttons open snackbars with the panel classes `success`, `info` and `error`. Style
+those classes in the app to preview custom snackbar themes.
 
 ## Code scaffolding
 

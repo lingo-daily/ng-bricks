@@ -86,3 +86,23 @@ references to `theme-showcase` in the org outside `wojciech-tracewski-art`.
   status to In Progress. No code changes yet.
 - 2026-10-05: Decisions: updating the consumer app goes to a follow-up ticket, WTA-101, on the
   WTA board. The `theme-showcase` repo gets archived, not deleted.
+- 2026-10-05: Linked LIB-12 → blocks → WTA-101 in Jira. **Steps 1–6 done:**
+  - New entry point `projects/ng-bricks/theme-showcase/` with `ThemeShowcase`. It's OnPush and
+    uses Reactive Forms (a `FormArray` for button classes and `FormControl`s for the form class and
+    window message), `TitleCasePipe` instead of `CommonModule`, and `DOCUMENT.defaultView` instead of
+    `window`. The template reads `control.value` directly, so no Observable→signal conversion was needed.
+  - Behavior changes from the source: `addButtonClass()` was dead code with no button calling it,
+    so there is now an "Add Button Class" button. The FAB buttons got `aria-label`s. The hint typo
+    was fixed ("Give your form a class!"). `MatDivider` is imported from `@angular/material/divider`
+    instead of `/list`. The `mat-card`/`mat-card-content` element selectors were replaced with the
+    classes `.showcase-card`/`.outer-card-content`, and the inline 62% width became `.message-field`.
+    Unused `.example-card` was removed. `postMessage` no longer needs a target origin and defaults
+    to same-origin.
+  - `@angular/forms` was added as a peer dependency. It was already missing for `file-uplink`, which
+    also uses Reactive Forms.
+  - `tsconfig.spec.json` maps `@lingo-daily/ng-bricks/*` to the source entry points. Specs can't
+    resolve one entry point importing another without this (ng-packagr does that itself during builds).
+  - The README has a table row and a `### ThemeShowcase` section.
+  - `npm run build` passes, and `ng test` passes (42 tests in 4 files). Both need Node ≥ 22: the
+    default nvm Node here is 14, so they were run with `~/.nvm/versions/node/v24.21.0/bin` on PATH.
+  - **Next:** step 7 (PR via `/curtail`), then steps 9–10 after the release is published.
