@@ -70,23 +70,19 @@ references to `theme-showcase` in the org outside `wojciech-tracewski-art`.
 
 ### Follow-ups outside this repo (confirm with the user before doing any of them)
 
-8. **`wojciech-tracewski-art`**: after the new ng-bricks version is published, bump
-   `@lingo-daily/ng-bricks`, change `theme-showcase-page.ts` to import `ThemeShowcase` from
-   `@lingo-daily/ng-bricks/theme-showcase`, and delete `src/app/features/theme-showcase-page/lib/`.
-   This needs its own branch and PR in that repo.
+8. **`wojciech-tracewski-art`**: tracked separately as
+   [WTA-101](https://lingo-daily.atlassian.net/browse/WTA-101) "Use theme-showcase from ng-bricks"
+   on that repo's board. It's done after the new ng-bricks version is published, and is out of scope for LIB-12.
 9. **Unpublish `@lingo-daily/theme-showcase`** from npm. npm only allows unpublishing a package
    that is more than 72 hours old if it has no dependents, low downloads and a single owner.
    Otherwise, fall back to `npm deprecate @lingo-daily/theme-showcase "Moved to @lingo-daily/ng-bricks/theme-showcase"`.
    This can't be undone, so the user has to confirm it.
-10. **Remove the `lingo-daily/theme-showcase` repo**. Ask the user whether to delete or archive it.
-    This is destructive, so the user has to confirm it.
-
-## Open questions
-
-- Should step 8 (updating the consumer app) be done as part of this ticket, or tracked separately?
-- For step 10, delete the repo or archive it?
+10. **Archive the `lingo-daily/theme-showcase` repo** (`gh repo archive lingo-daily/theme-showcase`).
+    Archive it rather than delete it (user decision). Do it after the package is unpublished or deprecated.
 
 ## Progress notes
 
 - 2026-10-05: Branch created and plan drafted. Changed the ticket type from Bug to Task and moved its
   status to In Progress. No code changes yet.
+- 2026-10-05: Decisions: updating the consumer app goes to a follow-up ticket, WTA-101, on the
+  WTA board. The `theme-showcase` repo gets archived, not deleted.
