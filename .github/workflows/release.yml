@@ -1,0 +1,103 @@
+name: Release
+
+# Bumps the version and tags it once a feat/* or fix/* PR has been merged into
+# the default branch. A feature bumps minor, a bugfix bumps patch; chore/* and
+# anything else are left alone. See release/Release.md for the policy.
+#
+# The bump is committed to the default branch after the merge, not to the PR
+# branch, so every bump starts from the version actually on the default branch
+# and two PRs can never end up carrying the same version. The release bot is
+# the one exception to "never commit directly to main".
+#
+# Pushing with the default GITHUB_TOKEN does not trigger other workflows, and
+# nothing needs it to: deploys are run manually (release/templates/deploy.yml).
+#
+# Copy this file unchanged into other lingo-daily repos. If a repo keeps the
+# version in more files than package.json and package-lock.json (e.g.
+# ngsw-config.json's appData.version), give it a "version:sync" npm script; it
+# runs after the bump.
+
+on:
+  pull_request:
+    types:
+      - closed
+
+permissions:
+  contents: write
+
+# One release at a time, so merges in quick succession get consecutive versions.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Bump version and tag
+    runs-on: ubuntu-latest
+    if: |
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == github.event.repository.default_branch &&
+      (startsWith(github.event.pull_request.head.ref, 'feat/') || startsWith(github.event.pull_request.head.ref, 'fix/'))
+
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The branch tip, not the merge commit: an earlier release run may
+          # have added a version commit since this PR was merged.
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: lts/*
+
+      - name: Bump, commit, tag and push
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          MERGE_SHA: ${{ github.event.pull_request.merge_commit_sha }}
+        run: |
+          set -euo pipefail
+
+          if [[ "${HEAD_REF}" == feat/* ]]; then
+            BUMP=minor
+          else
+            BUMP=patch
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          for attempt in 1 2 3 4 5; do
+            git fetch --quiet --tags origin "${DEFAULT_BRANCH}"
+            git reset --quiet --hard "origin/${DEFAULT_BRANCH}"
+
+            # A re-run of this workflow must not bump a second time.
+            if git log --format=%s "${MERGE_SHA}..HEAD" | grep -Eq "^Release [0-9.]+ \(#${PR_NUMBER}\)$"; then
+              echo "PR #${PR_NUMBER} has already been released; nothing to do."
+              exit 0
+            fi
+
+            # Updates package.json and, when present, package-lock.json. The
+            # npm lifecycle hooks are skipped so a repo's own version scripts
+            # can't commit or tag behind our back.
+            VERSION="$(npm version "${BUMP}" --no-git-tag-version --ignore-scripts | sed 's/^v//')"
+            npm run --if-present version:sync
+
+            git add --update
+            git commit --quiet -m "Release ${VERSION} (#${PR_NUMBER})"
+            git tag -a "${VERSION}" -m "Release ${VERSION} (#${PR_NUMBER})"
+
+            if git push --atomic origin "HEAD:${DEFAULT_BRANCH}" "refs/tags/${VERSION}"; then
+              echo "Released ${VERSION}." | tee -a "${GITHUB_STEP_SUMMARY}"
+              exit 0
+            fi
+
+            echo "Push rejected (attempt ${attempt}); ${DEFAULT_BRANCH} moved, retrying."
+            git tag -d "${VERSION}"
+            sleep $((attempt * 5))
+          done
+
+          echo "Could not push the release after 5 attempts." >&2
+          exit 1
