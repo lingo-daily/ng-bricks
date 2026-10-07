@@ -106,6 +106,11 @@ that tells the user a new version of the app has been deployed. It listens for t
 card). It also checks for updates after router navigation (debounced: 3 s in dev mode, 10 s
 otherwise). It does nothing during server-side rendering.
 
+A `VERSION_READY` event whose deployed `appData.version` equals the installed one is ignored: no
+card, no reload. Such deploys (chore changes, regenerated static content) still change the service
+worker manifest but aren't an app update; the browser picks them up on its next normal page load.
+If either side has no `version`, the versions can't be compared and the card is shown as usual.
+
 The component applies no positioning, layout or width to its host element — where it appears and
 how wide it is are up to the app (see [Recommended styling](#recommended-styling)).
 
@@ -173,7 +178,7 @@ ldpk-application-updates {
 
 | Input                | Type      | Default                                         | Description                                                    |
 | -------------------- | --------- | ----------------------------------------------- | -------------------------------------------------------------- |
-| `autoReload`         | `boolean` | `false`                                         | Activate the update and reload immediately on `VERSION_READY`. |
+| `autoReload`         | `boolean` | `false`                                         | Activate the update and reload immediately on a version change. |
 | `titleLabel`         | `string`  | `'updates are ready to use'`                    | Card title.                                                    |
 | `latestVersionLabel` | `string`  | `'ours'`                                        | Label before the deployed version.                             |
 | `currentVersionLabel`| `string`  | `'yours'`                                       | Label before the version running in the browser.               |

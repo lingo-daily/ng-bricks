@@ -112,6 +112,41 @@ describe('ApplicationUpdates', () => {
     expect(swUpdateService.reloadPage).not.toHaveBeenCalled();
   });
 
+  it('ignores VERSION_READY when the version has not changed', async () => {
+    await emitVersionReady('1.2.0', '1.2.0');
+
+    expect(card()).toBeNull();
+    expect(swUpdateService.activateUpdate).not.toHaveBeenCalled();
+    expect(swUpdateService.reloadPage).not.toHaveBeenCalled();
+  });
+
+  it('does not auto-reload on VERSION_READY when the version has not changed', async () => {
+    fixture.componentRef.setInput('autoReload', true);
+    await emitVersionReady('1.2.0', '1.2.0');
+
+    expect(swUpdateService.activateUpdate).not.toHaveBeenCalled();
+    expect(swUpdateService.reloadPage).not.toHaveBeenCalled();
+  });
+
+  it('shows a later version change after ignoring an unchanged one', async () => {
+    await emitVersionReady('1.2.0', '1.2.0');
+    await emitVersionReady('1.2.0', '1.3.0');
+
+    expect(card()?.textContent).toContain('ours: v1.3.0');
+  });
+
+  it('shows the card when appData has no version to compare', async () => {
+    swUpdateService.swUpdatesWhenStable$.next({
+      type: 'VERSION_READY',
+      currentVersion: { hash: 'current' },
+      latestVersion: { hash: 'latest' },
+    });
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    expect(card()).not.toBeNull();
+  });
+
   it('ignores version events other than VERSION_READY', async () => {
     swUpdateService.swUpdatesWhenStable$.next({
       type: 'NO_NEW_VERSION_DETECTED',

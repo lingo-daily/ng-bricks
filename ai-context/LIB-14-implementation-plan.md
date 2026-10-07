@@ -25,7 +25,7 @@ next time the page loads normally.
    messages where `currentVersion === latestVersion`. The filter must come before `mergeWith(this.demoVersionMessage$)`
    so the demo path is unaffected. Since it also sits before both `tap`s, no reload is triggered and
    `shouldShow` is never set.
-   - Decision to confirm: compare only when both versions are defined. If an app has no
+   - Decision (confirmed by the user): compare only when both versions are defined. If an app has no
      `appData.version`, both sides are `undefined`, and treating that as "unchanged" would suppress
      every update for apps that don't follow the documented `appData` contract. Recommended:
      `currentVersion === undefined || currentVersion !== latestVersion` keeps the card. In other
@@ -52,6 +52,9 @@ next time the page loads normally.
 - [x] Ticket created (LIB-14) and moved to In Progress
 - [x] Branch `fix/LIB-14-ApplicationUpdates-Update-card-shown-when-the-version-has-not-changed` created
       (brackets dropped from the summary: git refs can't contain `[`)
-- [ ] Steps 1–4
+- [x] Steps 1–4: same-version filter added before the auto-reload `tap`, on the raw `appData`
+      (before mapping to `VersionMessage`, whose public type keeps string versions); `appData`
+      access made null-safe; 4 new specs; README updated. 46/46 tests pass, `ng build ng-bricks`
+      succeeds. The repo has no lint target configured.
 - [ ] PR opened and merged
 - [ ] dashtickguitars bumped to the released version
