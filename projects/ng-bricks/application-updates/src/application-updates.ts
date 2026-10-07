@@ -74,15 +74,23 @@ export class ApplicationUpdates {
     this.swUpdateService.swUpdatesWhenStable$.pipe(
       takeUntilDestroyed(),
       filter((event) => event.type === 'VERSION_READY'),
-      map((event) => {
-        const currentAppData = event.currentVersion.appData as LdpkAppData;
-        const latestAppData = event.latestVersion.appData as LdpkAppData;
-        return {
-          currentVersion: currentAppData.version,
-          latestVersion: latestAppData.version,
-          description: latestAppData.description || this.noDescriptionLabel(),
-        };
-      }),
+      map((event) => ({
+        currentAppData: event.currentVersion.appData as LdpkAppData | undefined,
+        latestAppData: event.latestVersion.appData as LdpkAppData | undefined,
+      })),
+      // A deploy that leaves appData.version unchanged (a chore change or regenerated content)
+      // still changes the service worker manifest, but isn't an update worth announcing.
+      // Without a version on both sides the versions can't be compared, so the card still shows.
+      filter(
+        ({ currentAppData, latestAppData }) =>
+          currentAppData?.version === undefined ||
+          currentAppData.version !== latestAppData?.version,
+      ),
+      map(({ currentAppData, latestAppData }) => ({
+        currentVersion: currentAppData?.version ?? '',
+        latestVersion: latestAppData?.version ?? '',
+        description: latestAppData?.description || this.noDescriptionLabel(),
+      })),
       tap(() => {
         if (this.autoReload()) {
           void this.reload();
