@@ -1,6 +1,7 @@
+import { NgZone } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import type { VersionEvent } from '@angular/service-worker';
 import { Subject } from 'rxjs';
 import { APPLICATION_UPDATES_SHOW_DEMO_MESSAGE, ApplicationUpdates } from './application-updates';
@@ -217,5 +218,29 @@ describe('ApplicationUpdates', () => {
     await postWindowMessage(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE);
 
     expect(findButtonByText('refresh').classList).toContain('mdc-button--outlined');
+  });
+
+  describe('checking for updates on navigation', () => {
+    afterEach(() => vi.useRealTimers());
+
+    it('checks once navigation has settled', async () => {
+      vi.useFakeTimers();
+      await TestBed.inject(Router).navigateByUrl('/');
+
+      expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
+    });
+
+    it('waits outside Angular’s zone, so it never holds up app stability (LIB-15)', async () => {
+      vi.useFakeTimers();
+      const runOutsideAngular = vi.spyOn(TestBed.inject(NgZone), 'runOutsideAngular');
+
+      await TestBed.inject(Router).navigateByUrl('/');
+
+      expect(runOutsideAngular).toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(3_000);
+      expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
+    });
   });
 });

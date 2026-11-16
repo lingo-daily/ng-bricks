@@ -6,6 +6,7 @@ import {
   inject,
   input,
   isDevMode,
+  NgZone,
   PLATFORM_ID,
   signal,
 } from '@angular/core';
@@ -15,12 +16,14 @@ import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { NavigationEnd, Router } from '@angular/router';
 import {
+  asyncScheduler,
   debounceTime,
   filter,
   fromEvent,
   map,
   mergeWith,
   type Observable,
+  type SchedulerLike,
   Subject,
   tap,
 } from 'rxjs';
@@ -35,6 +38,22 @@ export interface VersionMessage {
   currentVersion: string;
   latestVersion: string;
   description?: string;
+}
+
+/**
+ * Schedules timers outside Angular's zone. In a zone-based app a pending timer keeps the
+ * application unstable, and the router skips scroll restoration until it's first stable
+ * after hydration (LIB-15). The timer must be created outside the zone, not just
+ * subscribed to there: operators like `debounceTime` schedule in whatever zone the value
+ * arrives in, and the router emits inside Angular's. Without zone.js,
+ * `runOutsideAngular` just runs the callback.
+ */
+function outsideAngular(zone: NgZone, scheduler: SchedulerLike = asyncScheduler): SchedulerLike {
+  return {
+    now: () => scheduler.now(),
+    schedule: (...args: Parameters<SchedulerLike['schedule']>) =>
+      zone.runOutsideAngular(() => scheduler.schedule(...args)),
+  };
 }
 
 /** Shape expected in the service worker's `appData` (`ngsw-config.json`). */
@@ -54,6 +73,7 @@ export class ApplicationUpdates {
   private readonly document = inject(DOCUMENT);
   private readonly swUpdateService = inject(SwUpdateService);
   private readonly router = inject(Router);
+  private readonly zone = inject(NgZone);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
   readonly autoReload = input(false);
@@ -105,11 +125,13 @@ export class ApplicationUpdates {
       return;
     }
 
-    // Check for updates on navigation
+    // Check for updates on navigation. The wait, and the check it leads to, run outside
+    // Angular's zone so they never hold up application stability (LIB-15). What the check
+    // finds still renders: it arrives through signals.
     this.router.events
       .pipe(
         filter((event) => event instanceof NavigationEnd),
-        debounceTime(isDevMode() ? 3_000 : 10_000), // avoid too frequent checks
+        debounceTime(isDevMode() ? 3_000 : 10_000, outsideAngular(this.zone)), // avoid too frequent checks
         takeUntilDestroyed(),
       )
       .subscribe(() => void this.swUpdateService.checkForUpdates());
