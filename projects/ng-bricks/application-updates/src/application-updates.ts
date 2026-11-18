@@ -5,7 +5,6 @@ import {
   DOCUMENT,
   inject,
   input,
-  isDevMode,
   PLATFORM_ID,
   signal,
 } from '@angular/core';
@@ -26,6 +25,7 @@ import {
   tap,
 } from 'rxjs';
 import { SwUpdateService } from './sw-update.service';
+import { updateCheckDebounce } from './update-check-debounce';
 
 /** Window message that makes `ldpk-application-updates` show a demo update card. */
 export const APPLICATION_UPDATES_SHOW_DEMO_MESSAGE = 'LDPK.application-updates.show-demo';
@@ -115,7 +115,7 @@ export class ApplicationUpdates {
       filter(() => this.document.visibilityState === 'visible'),
     );
     merge(navigationEnd$, tabVisible$)
-      .pipe(debounceTime(isDevMode() ? 3_000 : 10_000), takeUntilDestroyed())
+      .pipe(debounceTime(updateCheckDebounce()), takeUntilDestroyed())
       .subscribe(() => void this.swUpdateService.checkForUpdates());
 
     fromEvent<MessageEvent>(window, 'message')

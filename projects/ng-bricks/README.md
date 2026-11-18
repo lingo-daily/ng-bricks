@@ -105,8 +105,8 @@ that tells the user a new version of the app has been deployed. It listens for t
 **refresh** button (activates the update and reloads the page) and a **later** button (hides the
 card). It also checks for updates after router navigation and when the browser tab becomes visible
 again, for example when the user switches back to it. Both triggers share one debounce (3 s in dev
-mode, 10 s otherwise), so switching back to the tab and then navigating straight away causes a single
-check. It does nothing during server-side rendering.
+mode, 10 s otherwise), so switching back to the tab and then navigating straight away causes a
+single check. It does nothing during server-side rendering.
 
 A `VERSION_READY` event whose deployed `appData.version` equals the installed one is ignored: no
 card, no reload. Such deploys (chore changes, regenerated static content) still change the service

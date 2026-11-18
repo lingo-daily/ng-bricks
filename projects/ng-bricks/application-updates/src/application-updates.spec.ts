@@ -1,10 +1,12 @@
+import { PLATFORM_ID, type Provider } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { provideRouter, Router } from '@angular/router';
+import { provideRouter, Router, type Routes } from '@angular/router';
 import type { VersionEvent } from '@angular/service-worker';
 import { Subject } from 'rxjs';
 import { APPLICATION_UPDATES_SHOW_DEMO_MESSAGE, ApplicationUpdates } from './application-updates';
 import { SwUpdateService } from './sw-update.service';
+import { updateCheckDebounce } from './update-check-debounce';
 
 class FakeSwUpdateService {
   readonly swUpdatesWhenStable$ = new Subject<VersionEvent>();
@@ -22,6 +24,22 @@ function versionReadyEvent(currentVersion: string, latestVersion: string): Versi
   };
 }
 
+async function configureTestingModule(
+  swUpdateService: FakeSwUpdateService,
+  routes: Routes = [],
+  extraProviders: Provider[] = [],
+): Promise<void> {
+  await TestBed.configureTestingModule({
+    imports: [ApplicationUpdates],
+    providers: [
+      provideNoopAnimations(),
+      provideRouter(routes),
+      { provide: SwUpdateService, useValue: swUpdateService },
+      ...extraProviders,
+    ],
+  }).compileComponents();
+}
+
 describe('ApplicationUpdates', () => {
   let component: ApplicationUpdates;
   let fixture: ComponentFixture<ApplicationUpdates>;
@@ -29,15 +47,7 @@ describe('ApplicationUpdates', () => {
 
   beforeEach(async () => {
     swUpdateService = new FakeSwUpdateService();
-
-    await TestBed.configureTestingModule({
-      imports: [ApplicationUpdates],
-      providers: [
-        provideNoopAnimations(),
-        provideRouter([]),
-        { provide: SwUpdateService, useValue: swUpdateService },
-      ],
-    }).compileComponents();
+    await configureTestingModule(swUpdateService);
 
     fixture = TestBed.createComponent(ApplicationUpdates);
     component = fixture.componentInstance;
@@ -221,37 +231,29 @@ describe('ApplicationUpdates', () => {
 });
 
 describe('ApplicationUpdates update checks', () => {
-  // isDevMode() is true in tests, so the debounce is 3 s.
-  const DEBOUNCE = 3_000;
+  const DEBOUNCE = updateCheckDebounce();
 
   let swUpdateService: FakeSwUpdateService;
   let visibilityState: DocumentVisibilityState;
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.useFakeTimers();
     visibilityState = 'visible';
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      get: () => visibilityState,
-    });
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState);
     swUpdateService = new FakeSwUpdateService();
-
-    await TestBed.configureTestingModule({
-      imports: [ApplicationUpdates],
-      providers: [
-        provideNoopAnimations(),
-        provideRouter([{ path: '**', children: [] }]),
-        { provide: SwUpdateService, useValue: swUpdateService },
-      ],
-    }).compileComponents();
-
-    TestBed.createComponent(ApplicationUpdates);
   });
 
   afterEach(() => {
-    delete (document as { visibilityState?: DocumentVisibilityState }).visibilityState;
+    vi.restoreAllMocks();
     vi.useRealTimers();
   });
+
+  async function createComponent(
+    extraProviders: Provider[] = [],
+  ): Promise<ComponentFixture<ApplicationUpdates>> {
+    await configureTestingModule(swUpdateService, [{ path: '**', children: [] }], extraProviders);
+    return TestBed.createComponent(ApplicationUpdates);
+  }
 
   function showTab(): void {
     visibilityState = 'visible';
@@ -267,7 +269,8 @@ describe('ApplicationUpdates update checks', () => {
     await TestBed.inject(Router).navigateByUrl(url);
   }
 
-  it('checks for updates after the debounce when the tab becomes visible', () => {
+  it('checks for updates after the debounce when the tab becomes visible', async () => {
+    await createComponent();
     showTab();
 
     vi.advanceTimersByTime(DEBOUNCE - 1);
@@ -277,7 +280,8 @@ describe('ApplicationUpdates update checks', () => {
     expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
   });
 
-  it('does not check for updates when the tab is hidden', () => {
+  it('does not check for updates when the tab is hidden', async () => {
+    await createComponent();
     hideTab();
 
     vi.advanceTimersByTime(DEBOUNCE);
@@ -285,6 +289,7 @@ describe('ApplicationUpdates update checks', () => {
   });
 
   it('checks for updates after the debounce on navigation', async () => {
+    await createComponent();
     await navigate('/a');
 
     vi.advanceTimersByTime(DEBOUNCE - 1);
@@ -295,6 +300,7 @@ describe('ApplicationUpdates update checks', () => {
   });
 
   it('checks once when navigation and the tab becoming visible share a debounce window', async () => {
+    await createComponent();
     showTab();
     vi.advanceTimersByTime(DEBOUNCE / 2);
     await navigate('/a');
@@ -304,6 +310,7 @@ describe('ApplicationUpdates update checks', () => {
   });
 
   it('checks again for a later trigger outside the debounce window', async () => {
+    await createComponent();
     await navigate('/a');
     vi.advanceTimersByTime(DEBOUNCE);
     hideTab();
@@ -311,5 +318,27 @@ describe('ApplicationUpdates update checks', () => {
     vi.advanceTimersByTime(DEBOUNCE);
 
     expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancels a pending check and stops listening when destroyed', async () => {
+    const fixture = await createComponent();
+    showTab();
+    fixture.destroy();
+
+    vi.advanceTimersByTime(DEBOUNCE);
+    showTab();
+    await navigate('/a');
+    vi.advanceTimersByTime(DEBOUNCE);
+
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('does not check for updates during server-side rendering', async () => {
+    await createComponent([{ provide: PLATFORM_ID, useValue: 'server' }]);
+    showTab();
+    await navigate('/a');
+
+    vi.advanceTimersByTime(DEBOUNCE);
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
   });
 });
