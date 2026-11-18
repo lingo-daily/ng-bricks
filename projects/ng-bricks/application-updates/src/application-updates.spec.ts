@@ -1,6 +1,6 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router } from '@angular/router';
 import type { VersionEvent } from '@angular/service-worker';
 import { Subject } from 'rxjs';
 import { APPLICATION_UPDATES_SHOW_DEMO_MESSAGE, ApplicationUpdates } from './application-updates';
@@ -217,5 +217,99 @@ describe('ApplicationUpdates', () => {
     await postWindowMessage(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE);
 
     expect(findButtonByText('refresh').classList).toContain('mdc-button--outlined');
+  });
+});
+
+describe('ApplicationUpdates update checks', () => {
+  // isDevMode() is true in tests, so the debounce is 3 s.
+  const DEBOUNCE = 3_000;
+
+  let swUpdateService: FakeSwUpdateService;
+  let visibilityState: DocumentVisibilityState;
+
+  beforeEach(async () => {
+    vi.useFakeTimers();
+    visibilityState = 'visible';
+    Object.defineProperty(document, 'visibilityState', {
+      configurable: true,
+      get: () => visibilityState,
+    });
+    swUpdateService = new FakeSwUpdateService();
+
+    await TestBed.configureTestingModule({
+      imports: [ApplicationUpdates],
+      providers: [
+        provideNoopAnimations(),
+        provideRouter([{ path: '**', children: [] }]),
+        { provide: SwUpdateService, useValue: swUpdateService },
+      ],
+    }).compileComponents();
+
+    TestBed.createComponent(ApplicationUpdates);
+  });
+
+  afterEach(() => {
+    delete (document as { visibilityState?: DocumentVisibilityState }).visibilityState;
+    vi.useRealTimers();
+  });
+
+  function showTab(): void {
+    visibilityState = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+  }
+
+  function hideTab(): void {
+    visibilityState = 'hidden';
+    document.dispatchEvent(new Event('visibilitychange'));
+  }
+
+  async function navigate(url: string): Promise<void> {
+    await TestBed.inject(Router).navigateByUrl(url);
+  }
+
+  it('checks for updates after the debounce when the tab becomes visible', () => {
+    showTab();
+
+    vi.advanceTimersByTime(DEBOUNCE - 1);
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not check for updates when the tab is hidden', () => {
+    hideTab();
+
+    vi.advanceTimersByTime(DEBOUNCE);
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('checks for updates after the debounce on navigation', async () => {
+    await navigate('/a');
+
+    vi.advanceTimersByTime(DEBOUNCE - 1);
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks once when navigation and the tab becoming visible share a debounce window', async () => {
+    showTab();
+    vi.advanceTimersByTime(DEBOUNCE / 2);
+    await navigate('/a');
+
+    vi.advanceTimersByTime(DEBOUNCE);
+    expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks again for a later trigger outside the debounce window', async () => {
+    await navigate('/a');
+    vi.advanceTimersByTime(DEBOUNCE);
+    hideTab();
+    showTab();
+    vi.advanceTimersByTime(DEBOUNCE);
+
+    expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(2);
   });
 });

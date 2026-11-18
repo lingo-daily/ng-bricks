@@ -19,6 +19,7 @@ import {
   filter,
   fromEvent,
   map,
+  merge,
   mergeWith,
   type Observable,
   Subject,
@@ -105,13 +106,16 @@ export class ApplicationUpdates {
       return;
     }
 
-    // Check for updates on navigation
-    this.router.events
-      .pipe(
-        filter((event) => event instanceof NavigationEnd),
-        debounceTime(isDevMode() ? 3_000 : 10_000), // avoid too frequent checks
-        takeUntilDestroyed(),
-      )
+    // Check for updates on navigation and when the tab becomes visible again. Both triggers share
+    // one debounce, so returning to the tab and navigating right away results in a single check.
+    const navigationEnd$ = this.router.events.pipe(
+      filter((event) => event instanceof NavigationEnd),
+    );
+    const tabVisible$ = fromEvent(this.document, 'visibilitychange').pipe(
+      filter(() => this.document.visibilityState === 'visible'),
+    );
+    merge(navigationEnd$, tabVisible$)
+      .pipe(debounceTime(isDevMode() ? 3_000 : 10_000), takeUntilDestroyed())
       .subscribe(() => void this.swUpdateService.checkForUpdates());
 
     fromEvent<MessageEvent>(window, 'message')

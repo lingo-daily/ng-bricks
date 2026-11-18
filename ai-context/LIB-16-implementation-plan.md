@@ -55,8 +55,8 @@ to trigger an update check **just like navigation, with the same debounce**.
 3. **Docs**: update the `### ApplicationUpdates` section of `projects/ng-bricks/README.md` to say
    that it checks for updates after router navigation **and when the tab becomes visible again**,
    with the shared debounce (3 s dev / 10 s otherwise).
-4. **Verify**: run the library's tests and build (`npx ng test ng-bricks`, `npx ng build ng-bricks`)
-   and lint, if configured.
+4. **Verify**: `npx ng test --watch=false`, `npx ng build` and `npx prettier --check` (the repo
+   has a single project and no lint target).
 5. **Wrap up**: commit with `LIB-16 Check for application updates when a tab becomes visible again`
    as the first commit's subject, open the PR (feat → minor bump on merge).
 
@@ -64,7 +64,12 @@ to trigger an update check **just like navigation, with the same debounce**.
 
 - [x] Branch created from up-to-date `main`; ticket was already "In Progress".
 - [x] Plan drafted.
-- [ ] Step 1 — visibility trigger
-- [ ] Step 2 — tests
-- [ ] Step 3 — README
-- [ ] Step 4 — verify
+- [x] Step 1 — visibility trigger: `merge(navigationEnd$, tabVisible$)` before the shared
+  `debounceTime`. Kept `isDevMode()` evaluated in the constructor (not a module-level constant) so
+  its timing is the same as before.
+- [x] Step 2 — tests: a new top-level `describe('ApplicationUpdates update checks')` with fake timers
+  and a `document.visibilityState` override. The visibility tests fail when the change is reverted.
+- [x] Step 3 — README updated.
+- [x] Step 4 — 51/51 tests pass, the library builds, and the changed `.ts` files pass Prettier.
+  Note: `projects/ng-bricks/README.md` already failed `prettier --check` on `main`; left as is.
+- [ ] Step 5 — PR (via `/curtail`).
