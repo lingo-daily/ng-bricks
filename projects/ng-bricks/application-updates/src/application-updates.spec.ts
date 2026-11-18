@@ -1,10 +1,12 @@
+import { PLATFORM_ID, type Provider } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
-import { provideRouter } from '@angular/router';
+import { provideRouter, Router, type Routes } from '@angular/router';
 import type { VersionEvent } from '@angular/service-worker';
 import { Subject } from 'rxjs';
 import { APPLICATION_UPDATES_SHOW_DEMO_MESSAGE, ApplicationUpdates } from './application-updates';
 import { SwUpdateService } from './sw-update.service';
+import { updateCheckDebounce } from './update-check-debounce';
 
 class FakeSwUpdateService {
   readonly swUpdatesWhenStable$ = new Subject<VersionEvent>();
@@ -22,6 +24,22 @@ function versionReadyEvent(currentVersion: string, latestVersion: string): Versi
   };
 }
 
+async function configureTestingModule(
+  swUpdateService: FakeSwUpdateService,
+  routes: Routes = [],
+  extraProviders: Provider[] = [],
+): Promise<void> {
+  await TestBed.configureTestingModule({
+    imports: [ApplicationUpdates],
+    providers: [
+      provideNoopAnimations(),
+      provideRouter(routes),
+      { provide: SwUpdateService, useValue: swUpdateService },
+      ...extraProviders,
+    ],
+  }).compileComponents();
+}
+
 describe('ApplicationUpdates', () => {
   let component: ApplicationUpdates;
   let fixture: ComponentFixture<ApplicationUpdates>;
@@ -29,15 +47,7 @@ describe('ApplicationUpdates', () => {
 
   beforeEach(async () => {
     swUpdateService = new FakeSwUpdateService();
-
-    await TestBed.configureTestingModule({
-      imports: [ApplicationUpdates],
-      providers: [
-        provideNoopAnimations(),
-        provideRouter([]),
-        { provide: SwUpdateService, useValue: swUpdateService },
-      ],
-    }).compileComponents();
+    await configureTestingModule(swUpdateService);
 
     fixture = TestBed.createComponent(ApplicationUpdates);
     component = fixture.componentInstance;
@@ -217,5 +227,118 @@ describe('ApplicationUpdates', () => {
     await postWindowMessage(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE);
 
     expect(findButtonByText('refresh').classList).toContain('mdc-button--outlined');
+  });
+});
+
+describe('ApplicationUpdates update checks', () => {
+  const DEBOUNCE = updateCheckDebounce();
+
+  let swUpdateService: FakeSwUpdateService;
+  let visibilityState: DocumentVisibilityState;
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    visibilityState = 'visible';
+    vi.spyOn(document, 'visibilityState', 'get').mockImplementation(() => visibilityState);
+    swUpdateService = new FakeSwUpdateService();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.useRealTimers();
+  });
+
+  async function createComponent(
+    extraProviders: Provider[] = [],
+  ): Promise<ComponentFixture<ApplicationUpdates>> {
+    await configureTestingModule(swUpdateService, [{ path: '**', children: [] }], extraProviders);
+    return TestBed.createComponent(ApplicationUpdates);
+  }
+
+  function showTab(): void {
+    visibilityState = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+  }
+
+  function hideTab(): void {
+    visibilityState = 'hidden';
+    document.dispatchEvent(new Event('visibilitychange'));
+  }
+
+  async function navigate(url: string): Promise<void> {
+    await TestBed.inject(Router).navigateByUrl(url);
+  }
+
+  it('checks for updates after the debounce when the tab becomes visible', async () => {
+    await createComponent();
+    showTab();
+
+    vi.advanceTimersByTime(DEBOUNCE - 1);
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not check for updates when the tab is hidden', async () => {
+    await createComponent();
+    hideTab();
+
+    vi.advanceTimersByTime(DEBOUNCE);
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('checks for updates after the debounce on navigation', async () => {
+    await createComponent();
+    await navigate('/a');
+
+    vi.advanceTimersByTime(DEBOUNCE - 1);
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(1);
+    expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks once when navigation and the tab becoming visible share a debounce window', async () => {
+    await createComponent();
+    showTab();
+    vi.advanceTimersByTime(DEBOUNCE / 2);
+    await navigate('/a');
+
+    vi.advanceTimersByTime(DEBOUNCE);
+    expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks again for a later trigger outside the debounce window', async () => {
+    await createComponent();
+    await navigate('/a');
+    vi.advanceTimersByTime(DEBOUNCE);
+    hideTab();
+    showTab();
+    vi.advanceTimersByTime(DEBOUNCE);
+
+    expect(swUpdateService.checkForUpdates).toHaveBeenCalledTimes(2);
+  });
+
+  it('cancels a pending check and stops listening when destroyed', async () => {
+    const fixture = await createComponent();
+    showTab();
+    fixture.destroy();
+
+    vi.advanceTimersByTime(DEBOUNCE);
+    showTab();
+    await navigate('/a');
+    vi.advanceTimersByTime(DEBOUNCE);
+
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
+  });
+
+  it('does not check for updates during server-side rendering', async () => {
+    await createComponent([{ provide: PLATFORM_ID, useValue: 'server' }]);
+    showTab();
+    await navigate('/a');
+
+    vi.advanceTimersByTime(DEBOUNCE);
+    expect(swUpdateService.checkForUpdates).not.toHaveBeenCalled();
   });
 });
