@@ -143,4 +143,8 @@ unsubscribeFromMessages(...)
   `dashtickguitars` (`test-ui.component.ts`) and `the-perfect-dabblers-ng`
   (`playground.component.ts`) post the bare demo string with `window.postMessage`; that keeps
   working, and they can switch to `postToAllTabs` after this release (separate tickets).
+- 2026-11-25: Browser test in `dashtickguitars` (npm link + preserveSymlinks, temporary, reverted):
+  `postToAllTabs` from `/test-ui` showed the demo card in both tabs; a raw `LDPK` broadcast
+  reached both tabs; the README bare-string `window.postMessage` showed it only in the posting
+  tab; `{ type: … }` data was ignored; no console errors.
   Remaining: open the PR (`/curtail`).
