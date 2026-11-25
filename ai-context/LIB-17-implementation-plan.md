@@ -44,6 +44,16 @@ unsubscribeFromMessages(...)
    - an object with a string `message` property → `message = data.message`,
      `payload = data.payload` when it is a plain object.
    - anything else is ignored.
+   These rules are the **default type resolver**. `subscribeToMessages` takes an optional
+   `typeResolver` (agreed 2026-11-25) that normalizes third-party shapes, e.g. `{ type, data }`:
+   ```ts
+   type MessageTypeResolver = (data: unknown) => [string, MessagePayload?] | undefined;
+   ```
+   It returns `[message, payload]`, or `undefined` to ignore data it doesn't recognise (the
+   `undefined` return is an extension of the requested `(unknown) => [string, MessagePayload]`, so
+   one resolver can skip unrelated traffic). The resolver applies to that subscription only, on
+   both window and broadcast messages; if it throws, the event is skipped for that subscription
+   and the error is logged in dev mode.
    Our own posts use the same shape: `postToCurrentTab(message)` without a payload posts the bare
    string; with a payload it posts `{ message, payload }`. Broadcasts always post
    `{ message, payload }`.
@@ -60,8 +70,12 @@ unsubscribeFromMessages(...)
    Also accept an optional `DestroyRef` (or default to `inject(DestroyRef, { optional: true })`
    when called in an injection context) to auto-unsubscribe with the component — mirrors the
    `takeUntilDestroyed()` pattern used in `ApplicationUpdates`.
+   - Full signature: `subscribeToMessages(messages, callback, options?: { channel?, typeResolver?,
+     destroyRef? })`. Options object keeps the optional parameters order-independent.
    - Internally a single `window` `message` listener and one listener per channel fan out to a
-     `Map<string, Set<callback>>`; listeners are attached lazily on first subscription.
+     `Set` of subscriptions; each subscription runs its own resolver (default or custom) on the
+     event data and checks the resolved name against its message list. Listeners are attached
+     lazily on first subscription and removed when the last one goes.
    - Broadcast listening: `subscribeToMessages` takes an optional channel, default `'LDPK'`.
 7. **Callbacks run inside the Angular zone / trigger change detection** — app is zoneless-ready on
    Angular 22, so callers update signals; no extra work needed, but note it in docs.
@@ -71,7 +85,8 @@ unsubscribeFromMessages(...)
 1. [ ] Create `projects/ng-bricks/messaging/ng-package.json` (copy of
    `application-updates/ng-package.json`).
 2. [ ] Add `projects/ng-bricks/messaging/src/messaging.types.ts` — `MessagePayload`,
-   `MessageChannelName`, `MessageOrigin`, `MessageCallback`, `MessageSubscription`.
+   `MessageChannelName`, `MessageOrigin`, `MessageCallback`, `MessageTypeResolver`,
+   `MessageSubscription`, `SubscribeOptions`; plus the internal `defaultTypeResolver`.
 3. [ ] Add `projects/ng-bricks/messaging/src/messaging.service.ts` — `MessagingService` with
    `postToCurrentTab`, `postToOtherTabs`, `postToAllTabs`, `subscribeToMessages`,
    `unsubscribeFromMessages`, per the design above.
@@ -88,6 +103,8 @@ unsubscribeFromMessages(...)
    - third-party messages (bare string, `{ message, payload }`, other origins) are delivered with
      the raw event; data of any other shape is ignored
    - a bare-string `postMessage('LDPK.application-updates.show-demo', '*')` is delivered
+   - a custom `typeResolver` maps e.g. `{ type, data }`; returning `undefined` or throwing skips
+     the event for that subscription only, other subscriptions still get it
    - unsubscribe (handle and `unsubscribeFromMessages`) and `DestroyRef` cleanup
    - channels are closed on service destroy; no-op without `BroadcastChannel`
 7. [ ] (Optional, confirm) Migrate `ApplicationUpdates` to subscribe to
@@ -106,3 +123,5 @@ unsubscribeFromMessages(...)
   (service must handle third-party messages too); legacy bare-string demo message must keep
   working; callback signature and subscription handling agreed. Added raw `MessageEvent` as a
   4th callback argument (additive).
+- 2026-11-25: Added optional per-subscription `typeResolver` for third-party message shapes;
+  optional subscribe parameters grouped into an options object.
