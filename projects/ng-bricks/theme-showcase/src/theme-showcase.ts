@@ -1,5 +1,5 @@
 import { TitleCasePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, DOCUMENT, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormArray, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { type MatButtonAppearance, MatButtonModule } from '@angular/material/button';
 import { type MatCardAppearance, MatCardModule } from '@angular/material/card';
@@ -13,6 +13,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { APPLICATION_UPDATES_SHOW_DEMO_MESSAGE } from '@lingo-daily/ng-bricks/application-updates';
+import { MessagingService } from '@lingo-daily/ng-bricks/messaging';
 
 @Component({
   imports: [
@@ -30,12 +31,11 @@ import { APPLICATION_UPDATES_SHOW_DEMO_MESSAGE } from '@lingo-daily/ng-bricks/ap
     TitleCasePipe,
   ],
   selector: 'ldpk-theme-showcase',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './theme-showcase.scss',
   templateUrl: './theme-showcase.html',
 })
 export class ThemeShowcase {
-  private readonly document = inject(DOCUMENT);
+  private readonly messaging = inject(MessagingService);
   private readonly snackBar = inject(MatSnackBar);
 
   protected readonly buttonColors = ['primary', 'secondary', 'tertiary', 'accent', 'warn'];
@@ -54,7 +54,7 @@ export class ThemeShowcase {
     ),
   );
   protected readonly formClass = new FormControl('', { nonNullable: true });
-  protected readonly windowMessage = new FormControl(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE, {
+  protected readonly message = new FormControl(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE, {
     nonNullable: true,
   });
 
@@ -66,7 +66,8 @@ export class ThemeShowcase {
     this.snackBar.open(message, '×', { panelClass });
   }
 
-  postWindowMessage(): void {
-    this.document.defaultView?.postMessage(this.windowMessage.value);
+  /** Posts the message to this tab and the app's other tabs. */
+  postMessage(): void {
+    this.messaging.postToAllTabs(this.message.value);
   }
 }

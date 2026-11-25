@@ -11,6 +11,7 @@ Each component is published as its own secondary entry point:
 | `FileUplink`         | `@lingo-daily/ng-bricks/file-uplink`         |
 | `ApplicationUpdates` | `@lingo-daily/ng-bricks/application-updates` |
 | `ThemeShowcase`      | `@lingo-daily/ng-bricks/theme-showcase`      |
+| `MessagingService`   | `@lingo-daily/ng-bricks/messaging`           |
 
 Import from the entry point rather than the package root. Every component is still re-exported
 from `@lingo-daily/ng-bricks` for compatibility, and the root just re-exports the entry points, so
@@ -202,6 +203,9 @@ The card is never shown on init. To preview it without deploying a new version, 
 window.postMessage('LDPK.application-updates.show-demo', '*');
 ```
 
+The component listens through [`MessagingService`](#messagingservice), so posting the message to
+all tabs (`postToAllTabs`) shows the demo in every open tab of the app.
+
 The demo's current version is read from the `data-version` attribute of the first element that has
 one (falling back to `1.0.0`), and the latest version bumps its last segment with a `-demo` suffix.
 
@@ -213,6 +217,79 @@ disabled), `isEnabled`, `checkForUpdates()` (skips overlapping checks and times 
 `activateUpdate()` and `reloadPage()`. If the service worker becomes unrecoverable, it reloads the
 page after 5 s.
 
+### MessagingService
+
+`MessagingService` (`providedIn: 'root'`) posts named messages, with an optional payload, either to
+the current tab or to all of the app's tabs, the current one included, and delivers received
+messages to subscribers. It does nothing during server-side rendering. Where `BroadcastChannel` is
+unavailable or blocked (e.g. in a sandboxed iframe), messages only reach the current tab. See
+[docs/Messaging.md](https://github.com/lingo-daily/ng-bricks/blob/main/docs/Messaging.md) for how it works.
+
+```typescript
+import { MessagingService } from '@lingo-daily/ng-bricks/messaging';
+
+export class Cart {
+  private readonly messaging = inject(MessagingService);
+  protected readonly count = signal(0);
+
+  constructor() {
+    // Unsubscribes automatically when the component is destroyed.
+    this.messaging.subscribeToMessages(['cart.add', 'cart.clear'], (message) => {
+      this.count.update((count) => (message === 'cart.clear' ? 0 : count + 1));
+    });
+  }
+
+  add(productId: string): void {
+    this.messaging.postToAllTabs('cart.add', 'LDPK', { productId });
+  }
+}
+```
+
+| Method                                               | Description                                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `postToCurrentTab(message, payload?)`                | Posts to this tab's window only.                                                   |
+| `postToAllTabs(message, channel = 'LDPK', payload?)` | Posts to all of the app's tabs listening on `channel`, this one included.          |
+| `subscribeToMessages(messages, callback, options?)`  | Calls `callback(message, payload, event)` for each received message in `messages`. |
+| `unsubscribeFromMessages(subscription)`              | Stops a subscription; same as `subscription.unsubscribe()`.                        |
+
+`messages` is a message name or an array of names, and `event` is the raw `MessageEvent`. `subscribeToMessages` returns a subscription handle and, when
+called in an injection context (e.g. a constructor), unsubscribes when the caller is destroyed.
+Options:
+
+- `channel` — channel to listen to for messages posted to all tabs (default `'LDPK'`).
+- `typeResolver` — normalizes the received data, see below.
+- `acceptForeignOrigins` — also deliver window messages from other origins, see below (default
+  `false`).
+- `destroyRef` — unsubscribes when this `DestroyRef` is destroyed, for calls outside an injection
+  context.
+
+**Message format and third-party messages.** Every window message from this app's origin is
+delivered, including ones posted by third-party scripts on the page. Window messages from other
+origins (cross-origin iframes, the window that opened the app, popups) are ignored unless the
+subscription sets `acceptForeignOrigins: true`; then check `event.origin` in the callback, since any
+page that can reach the window can post them. By default, string data is a message without
+payload, and `{ message: string, payload?: object }` is a message with payload; anything else is
+ignored. A payload is a plain object (`Record<string, unknown>`); any other payload value (arrays,
+`Date`, `Map`, …) is dropped and the message is delivered without it. The service posts in the same format: a bare string when there's no payload. For other
+shapes, pass a `typeResolver` that returns `[message, payload]`, or `undefined` to ignore the data:
+
+```typescript
+this.messaging.subscribeToMessages('video.ended', onEnded, {
+  typeResolver: (data) => {
+    if (!isMessagePayload(data) || typeof data['type'] !== 'string') {
+      return undefined;
+    }
+    const payload = data['data'];
+    return [data['type'], isMessagePayload(payload) ? payload : undefined];
+  },
+});
+```
+
+The default resolver is exported as `defaultTypeResolver`, and the plain-object check as
+`isMessagePayload`. Posting copies the payload with the structured clone algorithm, so its values
+must be cloneable: no functions or DOM nodes. Class instances arrive as plain objects, while nested
+`Date`, `Map`, `Set` and similar values keep their type.
+
 ### ThemeShowcase
 
 `ThemeShowcase` (selector `ldpk-theme-showcase`) is a standalone page for reviewing an app's Angular
@@ -221,9 +298,9 @@ snackbars, form fields, checkboxes, progress indicators, chips and (nested) card
 appearance. You can type custom CSS class names into it to preview class-based button and form
 styling.
 
-It also has a **Window Messages** section that posts any message to the window. Its default is
-`APPLICATION_UPDATES_SHOW_DEMO_MESSAGE`, so it can trigger the
-[`ApplicationUpdates` demo](#demo).
+It also has a **Messages** section that posts any message to all of the app's tabs through
+[`MessagingService`](#messagingservice). Its default is `APPLICATION_UPDATES_SHOW_DEMO_MESSAGE`, so
+it can trigger the [`ApplicationUpdates` demo](#demo) in every open tab.
 
 The component pulls in many Material modules, so put it on a lazy route rather than in the
 initial bundle:

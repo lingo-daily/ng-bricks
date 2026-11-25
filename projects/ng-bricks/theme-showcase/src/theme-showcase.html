@@ -200,14 +200,14 @@
   </section>
 
   <section>
-    <h2>Window Messages</h2>
+    <h2>Messages</h2>
     <div class="row">
       <mat-form-field appearance="fill" class="message-field">
         <mat-label>Message</mat-label>
-        <input matInput [formControl]="windowMessage" />
+        <input matInput [formControl]="message" />
       </mat-form-field>
 
-      <button matButton="filled" (click)="postWindowMessage()">Post</button>
+      <button matButton="filled" (click)="postMessage()">Post</button>
     </div>
   </section>
 </div>

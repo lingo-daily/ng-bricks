@@ -70,7 +70,7 @@ describe('ApplicationUpdates', () => {
   }
 
   async function postWindowMessage(data: unknown): Promise<void> {
-    window.dispatchEvent(new MessageEvent('message', { data }));
+    window.dispatchEvent(new MessageEvent('message', { data, origin: window.location.origin }));
     fixture.detectChanges();
     await fixture.whenStable();
   }

@@ -1,8 +1,8 @@
-import { DOCUMENT } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { MatSnackBar } from '@angular/material/snack-bar';
 import { provideNoopAnimations } from '@angular/platform-browser/animations';
 import { APPLICATION_UPDATES_SHOW_DEMO_MESSAGE } from '@lingo-daily/ng-bricks/application-updates';
+import { MessagingService } from '@lingo-daily/ng-bricks/messaging';
 import { ThemeShowcase } from './theme-showcase';
 
 describe('ThemeShowcase', () => {
@@ -66,12 +66,12 @@ describe('ThemeShowcase', () => {
     expect(open).toHaveBeenCalledWith('This is an error snackbar', '×', { panelClass: 'error' });
   });
 
-  it('should post the window message', () => {
-    const window = TestBed.inject(DOCUMENT).defaultView!;
-    const postMessage = vi.spyOn(window, 'postMessage').mockImplementation(() => undefined);
+  it('should post the message to all tabs', () => {
+    const messaging = TestBed.inject(MessagingService);
+    const postToAllTabs = vi.spyOn(messaging, 'postToAllTabs').mockImplementation(() => undefined);
 
     buttonByText('Post').click();
 
-    expect(postMessage).toHaveBeenCalledWith(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE);
+    expect(postToAllTabs).toHaveBeenCalledWith(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE);
   });
 });
