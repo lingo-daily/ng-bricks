@@ -114,6 +114,8 @@ unsubscribeFromMessages(...)
 8. [x] README (`projects/ng-bricks/README.md`): add `messaging` to the entry-point table and a
    `### MessagingService` section with usage examples.
 9. [x] `npm run build` and `npm test` pass.
+10. [x] `ThemeShowcase`: the "Window Messages" section (now "Messages") posts through
+    `MessagingService.postToAllTabs` instead of `window.postMessage`; spec and README updated.
 
 ## Progress notes
 
@@ -137,4 +139,8 @@ unsubscribeFromMessages(...)
     post/subscription; all channels close when the service's injector is destroyed.
   - `defaultTypeResolver` is exported so custom resolvers can fall back to it.
   - README: only the new section was added; Prettier would also reformat older sections, left as is.
+- 2026-11-25: Step 10 — `ThemeShowcase` posts via `postToAllTabs` (user request). Sibling apps
+  `dashtickguitars` (`test-ui.component.ts`) and `the-perfect-dabblers-ng`
+  (`playground.component.ts`) post the bare demo string with `window.postMessage`; that keeps
+  working, and they can switch to `postToAllTabs` after this release (separate tickets).
   Remaining: open the PR (`/curtail`).

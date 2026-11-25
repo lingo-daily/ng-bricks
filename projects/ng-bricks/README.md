@@ -288,9 +288,9 @@ snackbars, form fields, checkboxes, progress indicators, chips and (nested) card
 appearance. You can type custom CSS class names into it to preview class-based button and form
 styling.
 
-It also has a **Window Messages** section that posts any message to the window. Its default is
-`APPLICATION_UPDATES_SHOW_DEMO_MESSAGE`, so it can trigger the
-[`ApplicationUpdates` demo](#demo).
+It also has a **Messages** section that posts any message to all of the app's tabs through
+[`MessagingService`](#messagingservice). Its default is `APPLICATION_UPDATES_SHOW_DEMO_MESSAGE`, so
+it can trigger the [`ApplicationUpdates` demo](#demo) in every open tab.
 
 The component pulls in many Material modules, so put it on a lazy route rather than in the
 initial bundle:
