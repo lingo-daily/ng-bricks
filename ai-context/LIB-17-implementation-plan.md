@@ -82,18 +82,18 @@ unsubscribeFromMessages(...)
 
 ## Implementation steps
 
-1. [ ] Create `projects/ng-bricks/messaging/ng-package.json` (copy of
+1. [x] Create `projects/ng-bricks/messaging/ng-package.json` (copy of
    `application-updates/ng-package.json`).
-2. [ ] Add `projects/ng-bricks/messaging/src/messaging.types.ts` — `MessagePayload`,
+2. [x] Add `projects/ng-bricks/messaging/src/messaging.types.ts` — `MessagePayload`,
    `MessageChannelName`, `MessageOrigin`, `MessageCallback`, `MessageTypeResolver`,
    `MessageSubscription`, `SubscribeOptions`; plus the internal `defaultTypeResolver`.
-3. [ ] Add `projects/ng-bricks/messaging/src/messaging.service.ts` — `MessagingService` with
+3. [x] Add `projects/ng-bricks/messaging/src/messaging.service.ts` — `MessagingService` with
    `postToCurrentTab`, `postToOtherTabs`, `postToAllTabs`, `subscribeToMessages`,
    `unsubscribeFromMessages`, per the design above.
-4. [ ] Add `projects/ng-bricks/messaging/src/public-api.ts` exporting the service and types.
-5. [ ] Re-export from `projects/ng-bricks/src/public-api.ts`
+4. [x] Add `projects/ng-bricks/messaging/src/public-api.ts` exporting the service and types.
+5. [x] Re-export from `projects/ng-bricks/src/public-api.ts`
    (`export * from '@lingo-daily/ng-bricks/messaging';`).
-6. [ ] Unit tests `messaging/src/messaging.service.spec.ts` (Vitest via `@angular/build:unit-test`,
+6. [x] Unit tests `messaging/src/messaging.service.spec.ts` (Vitest via `@angular/build:unit-test`,
    style as in `application-updates/src/sw-update.service.spec.ts`), using a fake
    `BroadcastChannel` stub:
    - current-tab post reaches subscribers of that message only; array subscription works
@@ -107,13 +107,13 @@ unsubscribeFromMessages(...)
      the event for that subscription only, other subscriptions still get it
    - unsubscribe (handle and `unsubscribeFromMessages`) and `DestroyRef` cleanup
    - channels are closed on service destroy; no-op without `BroadcastChannel`
-7. [ ] (Optional, confirm) Migrate `ApplicationUpdates` to subscribe to
+7. [x] (Confirmed) Migrate `ApplicationUpdates` to subscribe to
    `APPLICATION_UPDATES_SHOW_DEMO_MESSAGE` through `MessagingService` — would make the demo
    triggerable from another tab too. The README console snippet must keep working; its existing
    spec in `application-updates/src/application-updates.spec.ts` must stay green.
-8. [ ] README (`projects/ng-bricks/README.md`): add `messaging` to the entry-point table and a
+8. [x] README (`projects/ng-bricks/README.md`): add `messaging` to the entry-point table and a
    `### MessagingService` section with usage examples.
-9. [ ] `npm run build` and `npm test` pass.
+9. [x] `npm run build` and `npm test` pass.
 
 ## Progress notes
 
@@ -125,3 +125,16 @@ unsubscribeFromMessages(...)
   4th callback argument (additive).
 - 2026-11-25: Added optional per-subscription `typeResolver` for third-party message shapes;
   optional subscribe parameters grouped into an options object.
+- 2026-11-25: Implemented steps 1–9. `messaging` entry point builds; 70/70 tests pass
+  (17 new in `messaging.service.spec.ts`; `ApplicationUpdates` specs unchanged and green).
+  Decisions made while implementing:
+  - `postToCurrentTab` posts with `targetOrigin '*'`: the target is the posting window itself, so
+    nothing can leak to another origin. `'/'` is silently dropped by jsdom (tests), and
+    `location.origin` is `'null'` on opaque origins, which makes `postMessage` throw.
+  - A throwing subscriber callback is reported to Angular's `ErrorHandler` and doesn't stop
+    delivery to other subscribers.
+  - A broadcast channel is closed when its last subscriber goes and recreated on the next
+    post/subscription; all channels close when the service's injector is destroyed.
+  - `defaultTypeResolver` is exported so custom resolvers can fall back to it.
+  - README: only the new section was added; Prettier would also reformat older sections, left as is.
+  Remaining: open the PR (`/curtail`).

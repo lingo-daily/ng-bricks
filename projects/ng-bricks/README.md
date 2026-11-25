@@ -11,6 +11,7 @@ Each component is published as its own secondary entry point:
 | `FileUplink`         | `@lingo-daily/ng-bricks/file-uplink`         |
 | `ApplicationUpdates` | `@lingo-daily/ng-bricks/application-updates` |
 | `ThemeShowcase`      | `@lingo-daily/ng-bricks/theme-showcase`      |
+| `MessagingService`   | `@lingo-daily/ng-bricks/messaging`           |
 
 Import from the entry point rather than the package root. Every component is still re-exported
 from `@lingo-daily/ng-bricks` for compatibility, and the root just re-exports the entry points, so
@@ -202,6 +203,9 @@ The card is never shown on init. To preview it without deploying a new version, 
 window.postMessage('LDPK.application-updates.show-demo', '*');
 ```
 
+The component listens through [`MessagingService`](#messagingservice), so posting the message to
+all tabs (`postToAllTabs`) shows the demo in every open tab of the app.
+
 The demo's current version is read from the `data-version` attribute of the first element that has
 one (falling back to `1.0.0`), and the latest version bumps its last segment with a `-demo` suffix.
 
@@ -212,6 +216,69 @@ need it directly: `swUpdatesWhenStable$` (version events, or nothing when the se
 disabled), `isEnabled`, `checkForUpdates()` (skips overlapping checks and times out after 42 s),
 `activateUpdate()` and `reloadPage()`. If the service worker becomes unrecoverable, it reloads the
 page after 5 s.
+
+### MessagingService
+
+`MessagingService` (`providedIn: 'root'`) posts named messages, with an optional payload, to the
+current tab (`window.postMessage`) and to the app's other tabs (a `BroadcastChannel`, `'LDPK'` by
+default), and delivers received messages to subscribers. It does nothing during server-side
+rendering or where `BroadcastChannel` is unavailable.
+
+```typescript
+import { MessagingService } from '@lingo-daily/ng-bricks/messaging';
+
+export class Cart {
+  private readonly messaging = inject(MessagingService);
+  protected readonly count = signal(0);
+
+  constructor() {
+    // Unsubscribes automatically when the component is destroyed.
+    this.messaging.subscribeToMessages(['cart.add', 'cart.clear'], (message) => {
+      this.count.update((count) => (message === 'cart.clear' ? 0 : count + 1));
+    });
+  }
+
+  add(productId: string): void {
+    this.messaging.postToAllTabs('cart.add', 'LDPK', { productId });
+  }
+}
+```
+
+| Method                                                 | Description                                                                                |
+| ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
+| `postToCurrentTab(message, payload?)`                  | Posts to this tab's window.                                                                |
+| `postToOtherTabs(message, channel = 'LDPK', payload?)` | Posts to the other tabs listening on `channel`; this tab doesn't receive it.               |
+| `postToAllTabs(message, channel = 'LDPK', payload?)`   | Both of the above.                                                                         |
+| `subscribeToMessages(messages, callback, options?)`    | Calls `callback(message, payload, origin, event)` for each received message in `messages`. |
+| `unsubscribeFromMessages(subscription)`                | Stops a subscription; same as `subscription.unsubscribe()`.                                |
+
+`messages` is a message name or an array of names. `origin` is `'current-tab'` or `'other-tab'`,
+and `event` is the raw `MessageEvent`. `subscribeToMessages` returns a subscription handle and, when
+called in an injection context (e.g. a constructor), unsubscribes when the caller is destroyed.
+Options:
+
+- `channel` — broadcast channel to listen to for other tabs' messages (default `'LDPK'`).
+- `typeResolver` — normalizes the received data, see below.
+- `destroyRef` — unsubscribes when this `DestroyRef` is destroyed, for calls outside an injection
+  context.
+
+**Message format and third-party messages.** Window messages are not filtered by origin, so the
+service also receives messages posted by third parties (iframes, other scripts, extensions). Check
+`event.origin` in the callback when the sender matters. By default, string data is a message without
+payload, and `{ message: string, payload?: object }` is a message with payload; anything else is
+ignored. The service posts in the same format: a bare string when there's no payload. For other
+shapes, pass a `typeResolver` that returns `[message, payload]`, or `undefined` to ignore the data:
+
+```typescript
+this.messaging.subscribeToMessages('video.ended', onEnded, {
+  typeResolver: (data) => {
+    const { type, data: payload } = (data ?? {}) as { type?: unknown; data?: MessagePayload };
+    return typeof type === 'string' ? [type, payload] : undefined;
+  },
+});
+```
+
+The default resolver is exported as `defaultTypeResolver`. Payloads must be structured-cloneable.
 
 ### ThemeShowcase
 

@@ -13,6 +13,7 @@ import { type MatButtonAppearance, MatButtonModule } from '@angular/material/but
 import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { NavigationEnd, Router } from '@angular/router';
+import { MessagingService } from '@lingo-daily/ng-bricks/messaging';
 import {
   debounceTime,
   filter,
@@ -27,7 +28,7 @@ import {
 import { SwUpdateService } from './sw-update.service';
 import { updateCheckDebounce } from './update-check-debounce';
 
-/** Window message that makes `ldpk-application-updates` show a demo update card. */
+/** Message (from this or another tab) that makes `ldpk-application-updates` show a demo update card. */
 export const APPLICATION_UPDATES_SHOW_DEMO_MESSAGE = 'LDPK.application-updates.show-demo';
 
 const DEFAULT_DEMO_CURRENT_VERSION = '1.0.0';
@@ -54,6 +55,7 @@ export interface LdpkAppData {
 export class ApplicationUpdates {
   private readonly document = inject(DOCUMENT);
   private readonly swUpdateService = inject(SwUpdateService);
+  private readonly messagingService = inject(MessagingService);
   private readonly router = inject(Router);
   private readonly isBrowser = isPlatformBrowser(inject(PLATFORM_ID));
 
@@ -118,12 +120,10 @@ export class ApplicationUpdates {
       .pipe(debounceTime(updateCheckDebounce()), takeUntilDestroyed())
       .subscribe(() => void this.swUpdateService.checkForUpdates());
 
-    fromEvent<MessageEvent>(window, 'message')
-      .pipe(
-        filter((event) => event.data === APPLICATION_UPDATES_SHOW_DEMO_MESSAGE),
-        takeUntilDestroyed(),
-      )
-      .subscribe(() => this.showDemo());
+    // Unsubscribes when the component is destroyed. Also shows the demo when another tab posts it.
+    this.messagingService.subscribeToMessages(APPLICATION_UPDATES_SHOW_DEMO_MESSAGE, () =>
+      this.showDemo(),
+    );
   }
 
   async reload(): Promise<void> {
