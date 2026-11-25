@@ -219,10 +219,11 @@ page after 5 s.
 
 ### MessagingService
 
-`MessagingService` (`providedIn: 'root'`) posts named messages, with an optional payload, to the
-current tab (`window.postMessage`) and to the app's other tabs (a `BroadcastChannel`, `'LDPK'` by
-default), and delivers received messages to subscribers. It does nothing during server-side
-rendering or where `BroadcastChannel` is unavailable.
+`MessagingService` (`providedIn: 'root'`) posts named messages, with an optional payload, either to
+the current tab (`window.postMessage`) or to all of the app's tabs (the current tab plus a
+`BroadcastChannel`, `'LDPK'` by default), and delivers received messages to subscribers. It does
+nothing during server-side rendering. Where `BroadcastChannel` is unavailable or blocked (e.g. in a
+sandboxed iframe), messages only reach the current tab.
 
 ```typescript
 import { MessagingService } from '@lingo-daily/ng-bricks/messaging';
@@ -244,13 +245,12 @@ export class Cart {
 }
 ```
 
-| Method                                                 | Description                                                                                |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| `postToCurrentTab(message, payload?)`                  | Posts to this tab's window.                                                                |
-| `postToOtherTabs(message, channel = 'LDPK', payload?)` | Posts to the other tabs listening on `channel`; this tab doesn't receive it.               |
-| `postToAllTabs(message, channel = 'LDPK', payload?)`   | Both of the above.                                                                         |
-| `subscribeToMessages(messages, callback, options?)`    | Calls `callback(message, payload, origin, event)` for each received message in `messages`. |
-| `unsubscribeFromMessages(subscription)`                | Stops a subscription; same as `subscription.unsubscribe()`.                                |
+| Method                                               | Description                                                                                |
+| ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| `postToCurrentTab(message, payload?)`                | Posts to this tab's window only.                                                           |
+| `postToAllTabs(message, channel = 'LDPK', payload?)` | Posts to this tab and to the other tabs listening on `channel`.                            |
+| `subscribeToMessages(messages, callback, options?)`  | Calls `callback(message, payload, origin, event)` for each received message in `messages`. |
+| `unsubscribeFromMessages(subscription)`              | Stops a subscription; same as `subscription.unsubscribe()`.                                |
 
 `messages` is a message name or an array of names. `origin` is `'current-tab'` or `'other-tab'`,
 and `event` is the raw `MessageEvent`. `subscribeToMessages` returns a subscription handle and, when
@@ -259,12 +259,16 @@ Options:
 
 - `channel` — broadcast channel to listen to for other tabs' messages (default `'LDPK'`).
 - `typeResolver` — normalizes the received data, see below.
+- `acceptForeignOrigins` — also deliver window messages from other origins, see below (default
+  `false`).
 - `destroyRef` — unsubscribes when this `DestroyRef` is destroyed, for calls outside an injection
   context.
 
-**Message format and third-party messages.** Window messages are not filtered by origin, so the
-service also receives messages posted by third parties (iframes, other scripts, extensions). Check
-`event.origin` in the callback when the sender matters. By default, string data is a message without
+**Message format and third-party messages.** Every window message from this app's origin is
+delivered, including ones posted by third-party scripts on the page. Window messages from other
+origins (cross-origin iframes, the window that opened the app, popups) are ignored unless the
+subscription sets `acceptForeignOrigins: true`; then check `event.origin` in the callback, since any
+page that can reach the window can post them. By default, string data is a message without
 payload, and `{ message: string, payload?: object }` is a message with payload; anything else is
 ignored. The service posts in the same format: a bare string when there's no payload. For other
 shapes, pass a `typeResolver` that returns `[message, payload]`, or `undefined` to ignore the data:

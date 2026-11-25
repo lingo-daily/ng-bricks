@@ -6,7 +6,10 @@ export type MessagePayload = Record<string, unknown>;
 /** Name of the `BroadcastChannel` used to reach other tabs. */
 export type MessageChannelName = 'LDPK';
 
-/** Where a received message came from: this tab's window, or another tab via a broadcast channel. */
+/**
+ * How a received message arrived: through this tab's window (posted by this tab or, with
+ * `acceptForeignOrigins`, by another window), or from another tab through a broadcast channel.
+ */
 export type MessageOrigin = 'current-tab' | 'other-tab';
 
 /**
@@ -31,6 +34,11 @@ export interface SubscribeOptions {
   channel?: MessageChannelName;
   /** Normalizes received data. Defaults to {@link defaultTypeResolver}. */
   typeResolver?: MessageTypeResolver;
+  /**
+   * Also deliver window messages posted from other origins (cross-origin iframes, the opener,
+   * popups). Defaults to `false`. When enabled, check `event.origin` in the callback.
+   */
+  acceptForeignOrigins?: boolean;
   /**
    * Unsubscribes when it is destroyed. Defaults to the caller's `DestroyRef` when
    * `subscribeToMessages` is called in an injection context (e.g. a component constructor).

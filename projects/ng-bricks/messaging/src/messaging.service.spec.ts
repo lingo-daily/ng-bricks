@@ -1,7 +1,7 @@
-import { Component, DestroyRef, ErrorHandler, inject } from '@angular/core';
+import { Component, DestroyRef, ErrorHandler, inject, PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MessagingService } from './messaging.service';
-import type { MessageCallback, MessageTypeResolver } from './messaging.types';
+import type { MessageCallback, MessageSubscription, MessageTypeResolver } from './messaging.types';
 
 class FakeBroadcastChannel extends EventTarget {
   static instances: FakeBroadcastChannel[] = [];
@@ -40,7 +40,9 @@ function channel(): FakeBroadcastChannel {
   return open;
 }
 
-function postWindowMessage(data: unknown, origin = 'https://third-party.example'): void {
+const FOREIGN_ORIGIN = 'https://third-party.example';
+
+function postWindowMessage(data: unknown, origin = window.location.origin): void {
   window.dispatchEvent(new MessageEvent('message', { data, origin }));
 }
 
@@ -58,9 +60,17 @@ describe('MessagingService', () => {
   afterEach(() => {
     TestBed.resetTestingModule();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   describe('posting', () => {
+    beforeEach(() => {
+      // jsdom doesn't set event.origin on posted messages; a browser sets this window's origin.
+      vi.spyOn(window, 'postMessage').mockImplementation((data: unknown) => {
+        setTimeout(() => postWindowMessage(data));
+      });
+    });
+
     it('posts a bare string to the current tab when there is no payload', async () => {
       service.subscribeToMessages('ping', callback);
 
@@ -82,35 +92,47 @@ describe('MessagingService', () => {
       expect(callback.mock.calls[0].slice(0, 3)).toEqual(['ping', { count: 1 }, 'current-tab']);
     });
 
-    it('posts to other tabs on the LDPK broadcast channel only', async () => {
+    it('posts to all tabs: this window and the LDPK broadcast channel', async () => {
       service.subscribeToMessages('ping', callback);
 
-      service.postToOtherTabs('ping', 'LDPK', { count: 1 });
-      service.postToOtherTabs('pong');
+      service.postToAllTabs('ping', 'LDPK', { count: 1 });
+      service.postToAllTabs('pong');
 
       expect(channel().name).toBe('LDPK');
       expect(channel().posted).toEqual([
         { message: 'ping', payload: { count: 1 } },
         { message: 'pong' },
       ]);
-      await new Promise((resolve) => setTimeout(resolve, 10));
-      expect(callback).not.toHaveBeenCalled();
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+      expect(callback.mock.calls[0].slice(0, 3)).toEqual(['ping', { count: 1 }, 'current-tab']);
     });
 
-    it('posts to all tabs', async () => {
-      service.subscribeToMessages('ping', callback);
+    it('posts to this tab only without BroadcastChannel support', async () => {
+      vi.stubGlobal('BroadcastChannel', undefined);
 
-      service.postToAllTabs('ping', 'LDPK', { count: 1 });
-
-      expect(channel().posted).toEqual([{ message: 'ping', payload: { count: 1 } }]);
+      expect(() => service.subscribeToMessages('ping', callback)).not.toThrow();
+      expect(() => service.postToAllTabs('ping')).not.toThrow();
       await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
     });
 
-    it('does nothing without BroadcastChannel support', () => {
-      vi.stubGlobal('BroadcastChannel', undefined);
+    it('falls back to this tab only when BroadcastChannel throws', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      vi.stubGlobal(
+        'BroadcastChannel',
+        class {
+          constructor() {
+            throw new DOMException("Can't create BroadcastChannel", 'NotSupportedError');
+          }
+        },
+      );
 
-      expect(() => service.postToOtherTabs('ping')).not.toThrow();
-      expect(() => service.subscribeToMessages('ping', callback)).not.toThrow();
+      const subscription = service.subscribeToMessages('ping', callback);
+      service.postToAllTabs('ping');
+
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
+      subscription.unsubscribe();
+      postWindowMessage('ping');
+      expect(callback).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -136,13 +158,21 @@ describe('MessagingService', () => {
       expect(callback.mock.calls[0].slice(0, 3)).toEqual(['ping', { count: 1 }, 'other-tab']);
     });
 
-    it('delivers third-party messages from any origin with the raw event', () => {
-      service.subscribeToMessages('LDPK.application-updates.show-demo', callback);
+    it('ignores window messages from other origins by default', () => {
+      service.subscribeToMessages('ping', callback);
 
-      postWindowMessage('LDPK.application-updates.show-demo');
+      postWindowMessage('ping', FOREIGN_ORIGIN);
+
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('delivers other origins with acceptForeignOrigins, with the raw event', () => {
+      service.subscribeToMessages('ping', callback, { acceptForeignOrigins: true });
+
+      postWindowMessage('ping', FOREIGN_ORIGIN);
 
       const event = callback.mock.calls[0][3];
-      expect(event.origin).toBe('https://third-party.example');
+      expect(event.origin).toBe(FOREIGN_ORIGIN);
     });
 
     it('ignores data the default resolver does not recognise', () => {
@@ -171,7 +201,7 @@ describe('MessagingService', () => {
     });
 
     it('skips an event only for the subscription whose resolver throws', () => {
-      const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
       const otherCallback = vi.fn<MessageCallback>();
       service.subscribeToMessages('ping', callback, {
         typeResolver: () => {
@@ -184,7 +214,6 @@ describe('MessagingService', () => {
 
       expect(callback).not.toHaveBeenCalled();
       expect(otherCallback).toHaveBeenCalledTimes(1);
-      consoleError.mockRestore();
     });
 
     it('reports a failing callback to the ErrorHandler and keeps delivering', () => {
@@ -203,6 +232,16 @@ describe('MessagingService', () => {
   });
 
   describe('unsubscribing', () => {
+    it('does not call a subscriber that an earlier callback unsubscribed', () => {
+      let second: MessageSubscription | undefined;
+      service.subscribeToMessages('ping', () => second?.unsubscribe());
+      second = service.subscribeToMessages('ping', callback);
+
+      postWindowMessage('ping');
+
+      expect(callback).not.toHaveBeenCalled();
+    });
+
     it('stops delivery via the handle and via unsubscribeFromMessages', () => {
       const otherCallback = vi.fn<MessageCallback>();
       const subscription = service.subscribeToMessages('ping', callback);
@@ -266,6 +305,23 @@ describe('MessagingService', () => {
       postWindowMessage('ping');
 
       expect(openChannels()).toHaveLength(0);
+      expect(callback).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('server-side rendering', () => {
+    it('does nothing outside the browser', () => {
+      TestBed.resetTestingModule();
+      TestBed.configureTestingModule({ providers: [{ provide: PLATFORM_ID, useValue: 'server' }] });
+      const postMessage = vi.spyOn(window, 'postMessage');
+      const serverService = TestBed.inject(MessagingService);
+
+      serverService.subscribeToMessages('ping', callback);
+      serverService.postToAllTabs('ping');
+      postWindowMessage('ping');
+
+      expect(postMessage).not.toHaveBeenCalled();
+      expect(FakeBroadcastChannel.instances).toHaveLength(0);
       expect(callback).not.toHaveBeenCalled();
     });
   });

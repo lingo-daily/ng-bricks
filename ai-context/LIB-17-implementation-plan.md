@@ -22,7 +22,7 @@ Requested API (from the ticket):
 type MessagePayload = Record<string, unknown>;
 
 postToCurrentTab(message: string, payload?: MessagePayload)
-postToOtherTabs(message: string, channel: 'LDPK', payload?: MessagePayload)   // BroadcastChannel
+postToOtherTabs(message: string, channel: 'LDPK', payload?: MessagePayload)   // BroadcastChannel — DROPPED, see notes
 postToAllTabs(message: string, channel: 'LDPK', payload?: MessagePayload)     // both of the above
 subscribeToMessages(messages: string | string[], callback)
 unsubscribeFromMessages(...)
@@ -88,7 +88,7 @@ unsubscribeFromMessages(...)
    `MessageChannelName`, `MessageOrigin`, `MessageCallback`, `MessageTypeResolver`,
    `MessageSubscription`, `SubscribeOptions`; plus the internal `defaultTypeResolver`.
 3. [x] Add `projects/ng-bricks/messaging/src/messaging.service.ts` — `MessagingService` with
-   `postToCurrentTab`, `postToOtherTabs`, `postToAllTabs`, `subscribeToMessages`,
+   `postToCurrentTab`, `postToAllTabs`, `subscribeToMessages`,
    `unsubscribeFromMessages`, per the design above.
 4. [x] Add `projects/ng-bricks/messaging/src/public-api.ts` exporting the service and types.
 5. [x] Re-export from `projects/ng-bricks/src/public-api.ts`
@@ -147,4 +147,21 @@ unsubscribeFromMessages(...)
   `postToAllTabs` from `/test-ui` showed the demo card in both tabs; a raw `LDPK` broadcast
   reached both tabs; the README bare-string `window.postMessage` showed it only in the posting
   tab; `{ type: … }` data was ignored; no console errors.
+- 2026-11-25: Code review (xhigh) — fixed all 4 important findings; user also changed the contract:
+  - **`postToOtherTabs` dropped** (user decision): the API is "this tab" (`postToCurrentTab`) and
+    "all tabs" (`postToAllTabs`) only. Differs from GitHub #11 / LIB-17 description.
+  - **Origin filter back, opt-out per subscription:** window messages from other origins are ignored
+    unless `acceptForeignOrigins: true` (recommended option (a); supersedes the earlier "no origin
+    filter" decision, since any iframe/opener could trigger subscriptions). Same-origin third-party
+    scripts still work by default.
+  - `new BroadcastChannel()` throwing (opaque origin, blocked storage) falls back to this tab only.
+  - SSR: the service is inert unless `isPlatformBrowser`.
+  - Dispatch skips subscribers removed by an earlier callback in the same dispatch.
+  - Also: `messages` accepts `readonly string[]`; spec mocks restored in `afterEach`.
+  - Not done (minor review findings, deferred): channel kept open after a post without subscribers;
+    same-tab channel objects receive `postToAllTabs` as `'other-tab'`; bfcache impact of the open
+    channel in `ApplicationUpdates`; `ThemeShowcase.postWindowMessage` rename without alias;
+    `isPlainObject` accepts Map/Date; README typeResolver example doesn't validate the payload;
+    explicit `OnPush` on Angular 22 (pre-existing).
+  - 73/73 tests pass; library builds.
   Remaining: open the PR (`/curtail`).

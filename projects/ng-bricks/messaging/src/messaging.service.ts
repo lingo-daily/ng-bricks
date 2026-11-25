@@ -1,4 +1,13 @@
-import { DestroyRef, DOCUMENT, ErrorHandler, inject, Injectable, isDevMode } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import {
+  DestroyRef,
+  DOCUMENT,
+  ErrorHandler,
+  inject,
+  Injectable,
+  isDevMode,
+  PLATFORM_ID,
+} from '@angular/core';
 import {
   DEFAULT_MESSAGE_CHANNEL,
   defaultTypeResolver,
@@ -17,18 +26,22 @@ interface Subscriber {
   readonly callback: MessageCallback;
   readonly channel: MessageChannelName;
   readonly typeResolver: MessageTypeResolver;
+  readonly acceptForeignOrigins: boolean;
 }
 
 /**
- * Posts named messages, with an optional payload, to the current tab (window messages) and to
- * other tabs of the same origin (`BroadcastChannel`), and delivers received messages, including
- * third-party window messages, to subscribers. Does nothing where there's no window (SSR).
+ * Posts named messages, with an optional payload, to the current tab (window messages) or to all
+ * tabs of the same origin (window messages plus a `BroadcastChannel`), and delivers received
+ * messages to subscribers. Window messages from other origins are delivered only to subscriptions
+ * that opt in with `acceptForeignOrigins`. Does nothing outside the browser (SSR).
  */
 @Injectable({
   providedIn: 'root',
 })
 export class MessagingService {
-  private readonly window = inject(DOCUMENT).defaultView;
+  private readonly window = isPlatformBrowser(inject(PLATFORM_ID))
+    ? inject(DOCUMENT).defaultView
+    : null;
   private readonly errorHandler = inject(ErrorHandler);
   private readonly subscribers = new Set<Subscriber>();
   private readonly channels = new Map<MessageChannelName, BroadcastChannel>();
@@ -46,7 +59,7 @@ export class MessagingService {
     });
   }
 
-  /** Posts a message to this tab's window. */
+  /** Posts a message to this tab's window only. */
   postToCurrentTab(message: string, payload?: MessagePayload): void {
     // A bare string without payload, so third-party listeners and the README console snippets
     // (`window.postMessage('LDPK.…', '*')`) use the same format.
@@ -57,24 +70,19 @@ export class MessagingService {
     this.window?.postMessage(data, '*');
   }
 
-  /** Posts a message to the other tabs listening on `channel`. This tab doesn't receive it. */
-  postToOtherTabs(
-    message: string,
-    channel: MessageChannelName = DEFAULT_MESSAGE_CHANNEL,
-    payload?: MessagePayload,
-  ): void {
-    const data: MessageData = payload === undefined ? { message } : { message, payload };
-    this.getChannel(channel)?.postMessage(data);
-  }
-
-  /** Posts a message to this tab and to the other tabs listening on `channel`. */
+  /**
+   * Posts a message to this tab (via its window) and to the other tabs listening on `channel`
+   * (via a `BroadcastChannel`, which doesn't deliver to the channel that posts). Where
+   * `BroadcastChannel` is unavailable, only this tab receives it.
+   */
   postToAllTabs(
     message: string,
     channel: MessageChannelName = DEFAULT_MESSAGE_CHANNEL,
     payload?: MessagePayload,
   ): void {
     this.postToCurrentTab(message, payload);
-    this.postToOtherTabs(message, channel, payload);
+    const data: MessageData = payload === undefined ? { message } : { message, payload };
+    this.getChannel(channel)?.postMessage(data);
   }
 
   /**
@@ -83,7 +91,7 @@ export class MessagingService {
    * `DestroyRef` (or `options.destroyRef`) is destroyed.
    */
   subscribeToMessages(
-    messages: string | string[],
+    messages: string | readonly string[],
     callback: MessageCallback,
     options: SubscribeOptions = {},
   ): MessageSubscription {
@@ -92,12 +100,14 @@ export class MessagingService {
       callback,
       channel: options.channel ?? DEFAULT_MESSAGE_CHANNEL,
       typeResolver: options.typeResolver ?? defaultTypeResolver,
+      acceptForeignOrigins: options.acceptForeignOrigins ?? false,
     };
     const subscription: MessageSubscription = {
       unsubscribe: () => this.removeSubscriber(subscriber),
     };
 
-    // Register for destroy before adding, so a destroyed DestroyRef throws without leaking.
+    // Register for destroy before changing any state, so a destroyed DestroyRef throws without
+    // leaving a half-registered subscription. getChannel doesn't throw.
     const destroyRef = options.destroyRef ?? injectDestroyRefIfInContext();
     destroyRef?.onDestroy(() => subscription.unsubscribe());
 
@@ -141,16 +151,36 @@ export class MessagingService {
     if (!BroadcastChannelCtor) {
       return undefined;
     }
-    const channel = new BroadcastChannelCtor(name);
+    let channel: BroadcastChannel;
+    try {
+      channel = new BroadcastChannelCtor(name);
+    } catch (error) {
+      // E.g. NotSupportedError in opaque origins (sandboxed iframes), SecurityError when storage is
+      // blocked. Fall back to window messages only.
+      if (isDevMode()) {
+        console.warn(`BroadcastChannel '${name}' is unavailable, messaging this tab only:`, error);
+      }
+      return undefined;
+    }
     channel.addEventListener('message', (event) => this.dispatch(event, 'other-tab', name));
     this.channels.set(name, channel);
     return channel;
   }
 
   private dispatch(event: MessageEvent, origin: MessageOrigin, channel?: MessageChannelName): void {
-    // Copy, so callbacks that unsubscribe don't affect this dispatch.
+    // Broadcast channels only connect same-origin contexts; window messages can come from any.
+    const isForeign = origin === 'current-tab' && event.origin !== this.window?.location.origin;
+
+    // Iterate over a copy so subscriptions added by a callback don't receive this event, and skip
+    // subscribers that an earlier callback removed (directly or by destroying their owner).
     for (const subscriber of [...this.subscribers]) {
+      if (!this.subscribers.has(subscriber)) {
+        continue;
+      }
       if (channel !== undefined && subscriber.channel !== channel) {
+        continue;
+      }
+      if (isForeign && !subscriber.acceptForeignOrigins) {
         continue;
       }
 
