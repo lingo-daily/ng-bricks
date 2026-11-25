@@ -164,4 +164,5 @@ unsubscribeFromMessages(...)
     `isPlainObject` accepts Map/Date; README typeResolver example doesn't validate the payload;
     explicit `OnPush` on Angular 22 (pre-existing).
   - 73/73 tests pass; library builds.
+- 2026-11-25: LIB-17 description updated to the final API; GitHub #11 closed with a link to LIB-17.
   Remaining: open the PR (`/curtail`).
