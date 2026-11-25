@@ -1,5 +1,5 @@
 import { TitleCasePipe } from '@angular/common';
-import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { FormArray, FormControl, ReactiveFormsModule } from '@angular/forms';
 import { type MatButtonAppearance, MatButtonModule } from '@angular/material/button';
 import { type MatCardAppearance, MatCardModule } from '@angular/material/card';
@@ -31,7 +31,6 @@ import { MessagingService } from '@lingo-daily/ng-bricks/messaging';
     TitleCasePipe,
   ],
   selector: 'ldpk-theme-showcase',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './theme-showcase.scss',
   templateUrl: './theme-showcase.html',
 })

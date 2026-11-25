@@ -220,10 +220,10 @@ page after 5 s.
 ### MessagingService
 
 `MessagingService` (`providedIn: 'root'`) posts named messages, with an optional payload, either to
-the current tab (`window.postMessage`) or to all of the app's tabs (the current tab plus a
-`BroadcastChannel`, `'LDPK'` by default), and delivers received messages to subscribers. It does
-nothing during server-side rendering. Where `BroadcastChannel` is unavailable or blocked (e.g. in a
-sandboxed iframe), messages only reach the current tab.
+the current tab or to all of the app's tabs, the current one included, and delivers received
+messages to subscribers. It does nothing during server-side rendering. Where `BroadcastChannel` is
+unavailable or blocked (e.g. in a sandboxed iframe), messages only reach the current tab. See
+[docs/Messaging.md](https://github.com/lingo-daily/ng-bricks/blob/main/docs/Messaging.md) for how it works.
 
 ```typescript
 import { MessagingService } from '@lingo-daily/ng-bricks/messaging';
@@ -245,19 +245,18 @@ export class Cart {
 }
 ```
 
-| Method                                               | Description                                                                                |
-| ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| `postToCurrentTab(message, payload?)`                | Posts to this tab's window only.                                                           |
-| `postToAllTabs(message, channel = 'LDPK', payload?)` | Posts to this tab and to the other tabs listening on `channel`.                            |
-| `subscribeToMessages(messages, callback, options?)`  | Calls `callback(message, payload, origin, event)` for each received message in `messages`. |
-| `unsubscribeFromMessages(subscription)`              | Stops a subscription; same as `subscription.unsubscribe()`.                                |
+| Method                                               | Description                                                                        |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| `postToCurrentTab(message, payload?)`                | Posts to this tab's window only.                                                   |
+| `postToAllTabs(message, channel = 'LDPK', payload?)` | Posts to all of the app's tabs listening on `channel`, this one included.          |
+| `subscribeToMessages(messages, callback, options?)`  | Calls `callback(message, payload, event)` for each received message in `messages`. |
+| `unsubscribeFromMessages(subscription)`              | Stops a subscription; same as `subscription.unsubscribe()`.                        |
 
-`messages` is a message name or an array of names. `origin` is `'current-tab'` or `'other-tab'`,
-and `event` is the raw `MessageEvent`. `subscribeToMessages` returns a subscription handle and, when
+`messages` is a message name or an array of names, and `event` is the raw `MessageEvent`. `subscribeToMessages` returns a subscription handle and, when
 called in an injection context (e.g. a constructor), unsubscribes when the caller is destroyed.
 Options:
 
-- `channel` — broadcast channel to listen to for other tabs' messages (default `'LDPK'`).
+- `channel` — channel to listen to for messages posted to all tabs (default `'LDPK'`).
 - `typeResolver` — normalizes the received data, see below.
 - `acceptForeignOrigins` — also deliver window messages from other origins, see below (default
   `false`).
@@ -270,19 +269,26 @@ origins (cross-origin iframes, the window that opened the app, popups) are ignor
 subscription sets `acceptForeignOrigins: true`; then check `event.origin` in the callback, since any
 page that can reach the window can post them. By default, string data is a message without
 payload, and `{ message: string, payload?: object }` is a message with payload; anything else is
-ignored. The service posts in the same format: a bare string when there's no payload. For other
+ignored. A payload is a plain object (`Record<string, unknown>`); any other payload value (arrays,
+`Date`, `Map`, …) is dropped and the message is delivered without it. The service posts in the same format: a bare string when there's no payload. For other
 shapes, pass a `typeResolver` that returns `[message, payload]`, or `undefined` to ignore the data:
 
 ```typescript
 this.messaging.subscribeToMessages('video.ended', onEnded, {
   typeResolver: (data) => {
-    const { type, data: payload } = (data ?? {}) as { type?: unknown; data?: MessagePayload };
-    return typeof type === 'string' ? [type, payload] : undefined;
+    if (!isMessagePayload(data) || typeof data['type'] !== 'string') {
+      return undefined;
+    }
+    const payload = data['data'];
+    return [data['type'], isMessagePayload(payload) ? payload : undefined];
   },
 });
 ```
 
-The default resolver is exported as `defaultTypeResolver`. Payloads must be structured-cloneable.
+The default resolver is exported as `defaultTypeResolver`, and the plain-object check as
+`isMessagePayload`. Posting copies the payload with the structured clone algorithm, so its values
+must be cloneable: no functions or DOM nodes. Class instances arrive as plain objects, while nested
+`Date`, `Map`, `Set` and similar values keep their type.
 
 ### ThemeShowcase
 

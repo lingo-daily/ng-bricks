@@ -1,7 +1,12 @@
 import { Component, DestroyRef, ErrorHandler, inject, PLATFORM_ID } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { MessagingService } from './messaging.service';
-import type { MessageCallback, MessageSubscription, MessageTypeResolver } from './messaging.types';
+import type {
+  MessageCallback,
+  MessagePayload,
+  MessageSubscription,
+  MessageTypeResolver,
+} from './messaging.types';
 
 class FakeBroadcastChannel extends EventTarget {
   static instances: FakeBroadcastChannel[] = [];
@@ -15,7 +20,8 @@ class FakeBroadcastChannel extends EventTarget {
   }
 
   postMessage(data: unknown): void {
-    this.posted.push(data);
+    // Like the real API, posting clones the data.
+    this.posted.push(structuredClone(data));
   }
 
   close(): void {
@@ -64,11 +70,23 @@ describe('MessagingService', () => {
   });
 
   describe('posting', () => {
+    let pendingDeliveries: ReturnType<typeof setTimeout>[];
+
     beforeEach(() => {
+      pendingDeliveries = [];
       // jsdom doesn't set event.origin on posted messages; a browser sets this window's origin.
       vi.spyOn(window, 'postMessage').mockImplementation((data: unknown) => {
-        setTimeout(() => postWindowMessage(data));
+        // Like the real API, posting clones the data and delivers it asynchronously.
+        const cloned = structuredClone(data);
+        pendingDeliveries.push(setTimeout(() => postWindowMessage(cloned)));
       });
+    });
+
+    afterEach(() => {
+      // Don't let a message posted by one test reach the next one.
+      for (const timeout of pendingDeliveries) {
+        clearTimeout(timeout);
+      }
     });
 
     it('posts a bare string to the current tab when there is no payload', async () => {
@@ -77,8 +95,8 @@ describe('MessagingService', () => {
       service.postToCurrentTab('ping');
 
       await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
-      const [message, payload, origin, event] = callback.mock.calls[0];
-      expect([message, payload, origin]).toEqual(['ping', undefined, 'current-tab']);
+      const [message, payload, event] = callback.mock.calls[0];
+      expect([message, payload]).toEqual(['ping', undefined]);
       expect(event.data).toBe('ping');
       expect(channel().posted).toEqual([]);
     });
@@ -89,7 +107,7 @@ describe('MessagingService', () => {
       service.postToCurrentTab('ping', { count: 1 });
 
       await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
-      expect(callback.mock.calls[0].slice(0, 3)).toEqual(['ping', { count: 1 }, 'current-tab']);
+      expect(callback.mock.calls[0].slice(0, 2)).toEqual(['ping', { count: 1 }]);
     });
 
     it('posts to all tabs: this window and the LDPK broadcast channel', async () => {
@@ -104,7 +122,48 @@ describe('MessagingService', () => {
         { message: 'pong' },
       ]);
       await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(1));
-      expect(callback.mock.calls[0].slice(0, 3)).toEqual(['ping', { count: 1 }, 'current-tab']);
+      expect(callback.mock.calls[0].slice(0, 2)).toEqual(['ping', { count: 1 }]);
+    });
+
+    it('posts to other tabs through a short-lived channel when nothing here subscribes', () => {
+      service.postToAllTabs('ping', 'LDPK', { count: 1 });
+
+      expect(FakeBroadcastChannel.instances).toHaveLength(1);
+      const [temporary] = FakeBroadcastChannel.instances;
+      expect(temporary.posted).toEqual([{ message: 'ping', payload: { count: 1 } }]);
+      expect(temporary.closed).toBe(true);
+    });
+
+    it('does nothing after the service is destroyed', async () => {
+      TestBed.resetTestingModule();
+
+      service.postToAllTabs('ping');
+      service.subscribeToMessages('ping', callback);
+      postWindowMessage('ping');
+
+      expect(window.postMessage).not.toHaveBeenCalled();
+      expect(FakeBroadcastChannel.instances).toHaveLength(0);
+      expect(callback).not.toHaveBeenCalled();
+    });
+
+    it('delivers payloads as plain objects after structured cloning', async () => {
+      class Point {
+        constructor(
+          readonly x: number,
+          readonly at: Date,
+        ) {}
+      }
+      const at = new Date('2026-11-25T00:00:00Z');
+      service.subscribeToMessages('ping', callback);
+
+      service.postToCurrentTab('ping', { point: new Point(1, at) } as MessagePayload);
+      service.postToCurrentTab('ping', Object.assign(Object.create(null), { count: 1 }));
+
+      await vi.waitFor(() => expect(callback).toHaveBeenCalledTimes(2));
+      const [first, second] = callback.mock.calls.map(([, payload]) => payload);
+      expect(first).toEqual({ point: { x: 1, at } });
+      expect((first?.['point'] as { at: unknown }).at).toBeInstanceOf(Date);
+      expect(second).toEqual({ count: 1 });
     });
 
     it('posts to this tab only without BroadcastChannel support', async () => {
@@ -155,7 +214,7 @@ describe('MessagingService', () => {
 
       channel().receive({ message: 'ping', payload: { count: 1 } });
 
-      expect(callback.mock.calls[0].slice(0, 3)).toEqual(['ping', { count: 1 }, 'other-tab']);
+      expect(callback.mock.calls[0].slice(0, 2)).toEqual(['ping', { count: 1 }]);
     });
 
     it('ignores window messages from other origins by default', () => {
@@ -171,7 +230,7 @@ describe('MessagingService', () => {
 
       postWindowMessage('ping', FOREIGN_ORIGIN);
 
-      const event = callback.mock.calls[0][3];
+      const event = callback.mock.calls[0][2];
       expect(event.origin).toBe(FOREIGN_ORIGIN);
     });
 
@@ -182,9 +241,13 @@ describe('MessagingService', () => {
       postWindowMessage(42);
       postWindowMessage(null);
       postWindowMessage({ message: 'ping', payload: 'not an object' });
+      postWindowMessage({ message: 'ping', payload: new Map([['count', 1]]) });
+      postWindowMessage({ message: 'ping', payload: [1] });
+      postWindowMessage({ message: 'ping', payload: new Date() });
 
-      expect(callback.mock.calls).toHaveLength(1);
-      expect(callback.mock.calls[0][1]).toBeUndefined();
+      // Messages with an invalid payload are delivered without it.
+      expect(callback.mock.calls).toHaveLength(4);
+      expect(callback.mock.calls.every(([, payload]) => payload === undefined)).toBe(true);
     });
 
     it('normalizes third-party shapes with a custom type resolver', () => {

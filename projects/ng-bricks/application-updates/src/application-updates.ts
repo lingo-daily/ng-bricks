@@ -1,13 +1,5 @@
 import { AsyncPipe, isPlatformBrowser } from '@angular/common';
-import {
-  ChangeDetectionStrategy,
-  Component,
-  DOCUMENT,
-  inject,
-  input,
-  PLATFORM_ID,
-  signal,
-} from '@angular/core';
+import { Component, DOCUMENT, inject, input, PLATFORM_ID, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { type MatButtonAppearance, MatButtonModule } from '@angular/material/button';
 import { MatCardModule } from '@angular/material/card';
@@ -48,7 +40,6 @@ export interface LdpkAppData {
 @Component({
   imports: [AsyncPipe, MatButtonModule, MatCardModule, MatIconModule],
   selector: 'ldpk-application-updates',
-  changeDetection: ChangeDetectionStrategy.OnPush,
   styleUrl: './application-updates.scss',
   templateUrl: './application-updates.html',
 })

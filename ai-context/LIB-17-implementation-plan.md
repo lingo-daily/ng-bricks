@@ -165,4 +165,21 @@ unsubscribeFromMessages(...)
     explicit `OnPush` on Angular 22 (pre-existing).
   - 73/73 tests pass; library builds.
 - 2026-11-25: LIB-17 description updated to the final API; GitHub #11 closed with a link to LIB-17.
+- 2026-11-25: Minor review findings, per user decisions:
+  - #1 `postToAllTabs` without subscribers posts through a short-lived channel and closes it; the
+    service ignores calls after its injector is destroyed.
+  - #2 **Callback is now `(message, payload, event)`** — the `origin` argument and `MessageOrigin`
+    type are gone (user: "all tabs" means every tab, current one included; no `'other-tab'`).
+  - #3 bfcache tested in Chrome 158 (static page): an open channel doesn't block caching, but a
+    message on the channel while the page is cached evicts it (`broadcastchannel-message`).
+    Firefox/Safari untested. Reported, with architecture, in `docs/Messaging.md`; mitigation
+    (close on `pagehide`, reopen on `pageshow`) documented, not implemented.
+  - #4 No sibling repo calls `ThemeShowcase.postWindowMessage`; the new name `postMessage()` stays.
+  - #5 Payload must be a plain object (prototype `Object.prototype`/`null`), checked after
+    structured cloning; exported as `isMessagePayload`. Non-plain payloads are dropped, the
+    message is still delivered.
+  - #6 README `typeResolver` example validates with `isMessagePayload`.
+  - #7 Explicit `OnPush` removed from `ApplicationUpdates` and `ThemeShowcase`
+    (`FileUplink` still has it; not touched by this branch).
+  - 76/76 tests pass (stable over 3 runs); library builds.
   Remaining: open the PR (`/curtail`).

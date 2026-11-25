@@ -14,7 +14,6 @@ import {
   type MessageCallback,
   type MessageChannelName,
   type MessageData,
-  type MessageOrigin,
   type MessagePayload,
   type MessageSubscription,
   type MessageTypeResolver,
@@ -30,10 +29,10 @@ interface Subscriber {
 }
 
 /**
- * Posts named messages, with an optional payload, to the current tab (window messages) or to all
- * tabs of the same origin (window messages plus a `BroadcastChannel`), and delivers received
- * messages to subscribers. Window messages from other origins are delivered only to subscriptions
- * that opt in with `acceptForeignOrigins`. Does nothing outside the browser (SSR).
+ * Posts named messages, with an optional payload, to the current tab or to all of the app's tabs
+ * (the current one included), and delivers received messages to subscribers. Window messages from
+ * other origins are delivered only to subscriptions that opt in with `acceptForeignOrigins`. Does
+ * nothing outside the browser (SSR). See `docs/Messaging.md` for the architecture.
  */
 @Injectable({
   providedIn: 'root',
@@ -44,12 +43,14 @@ export class MessagingService {
     : null;
   private readonly errorHandler = inject(ErrorHandler);
   private readonly subscribers = new Set<Subscriber>();
+  /** Open channels, one per name that has subscribers. */
   private readonly channels = new Map<MessageChannelName, BroadcastChannel>();
-  private readonly onWindowMessage = (event: MessageEvent): void =>
-    this.dispatch(event, 'current-tab');
+  private readonly onWindowMessage = (event: MessageEvent): void => this.dispatch(event);
+  private destroyed = false;
 
   constructor() {
     inject(DestroyRef).onDestroy(() => {
+      this.destroyed = true;
       this.subscribers.clear();
       this.window?.removeEventListener('message', this.onWindowMessage);
       for (const channel of this.channels.values()) {
@@ -59,8 +60,11 @@ export class MessagingService {
     });
   }
 
-  /** Posts a message to this tab's window only. */
+  /** Posts a message to this tab only (via its window). */
   postToCurrentTab(message: string, payload?: MessagePayload): void {
+    if (this.destroyed) {
+      return;
+    }
     // A bare string without payload, so third-party listeners and the README console snippets
     // (`window.postMessage('LDPK.…', '*')`) use the same format.
     const data: string | MessageData = payload === undefined ? message : { message, payload };
@@ -71,23 +75,37 @@ export class MessagingService {
   }
 
   /**
-   * Posts a message to this tab (via its window) and to the other tabs listening on `channel`
-   * (via a `BroadcastChannel`, which doesn't deliver to the channel that posts). Where
-   * `BroadcastChannel` is unavailable, only this tab receives it.
+   * Posts a message to all of the app's tabs listening on `channel`, this one included: to this tab
+   * via its window, and to the others via a `BroadcastChannel`. Where `BroadcastChannel` is
+   * unavailable, only this tab receives it.
    */
   postToAllTabs(
     message: string,
     channel: MessageChannelName = DEFAULT_MESSAGE_CHANNEL,
     payload?: MessagePayload,
   ): void {
+    if (this.destroyed) {
+      return;
+    }
     this.postToCurrentTab(message, payload);
+
     const data: MessageData = payload === undefined ? { message } : { message, payload };
-    this.getChannel(channel)?.postMessage(data);
+    const subscribed = this.channels.get(channel);
+    if (subscribed) {
+      // BroadcastChannel doesn't deliver to the channel object that posts, so this tab's
+      // subscribers only get the window message above.
+      subscribed.postMessage(data);
+      return;
+    }
+    // No subscribers here: post through a short-lived channel rather than keep one open.
+    const temporary = this.openChannel(channel);
+    temporary?.postMessage(data);
+    temporary?.close();
   }
 
   /**
-   * Calls `callback` for each received message named in `messages`, from this tab's window and
-   * from other tabs on the subscription's channel. Unsubscribes automatically when the caller's
+   * Calls `callback` for each received message named in `messages`, posted by this tab or by the
+   * app's other tabs on the subscription's channel. Unsubscribes automatically when the caller's
    * `DestroyRef` (or `options.destroyRef`) is destroyed.
    */
   subscribeToMessages(
@@ -105,9 +123,12 @@ export class MessagingService {
     const subscription: MessageSubscription = {
       unsubscribe: () => this.removeSubscriber(subscriber),
     };
+    if (this.destroyed) {
+      return subscription;
+    }
 
     // Register for destroy before changing any state, so a destroyed DestroyRef throws without
-    // leaving a half-registered subscription. getChannel doesn't throw.
+    // leaving a half-registered subscription. Nothing below throws.
     const destroyRef = options.destroyRef ?? injectDestroyRefIfInContext();
     destroyRef?.onDestroy(() => subscription.unsubscribe());
 
@@ -115,7 +136,7 @@ export class MessagingService {
       this.window?.addEventListener('message', this.onWindowMessage);
     }
     this.subscribers.add(subscriber);
-    this.getChannel(subscriber.channel);
+    this.listenOnChannel(subscriber.channel);
 
     return subscription;
   }
@@ -136,24 +157,31 @@ export class MessagingService {
       ({ channel }) => channel === subscriber.channel,
     );
     if (!channelInUse) {
-      // Recreated on the next post or subscription to this channel.
       this.channels.get(subscriber.channel)?.close();
       this.channels.delete(subscriber.channel);
     }
   }
 
-  private getChannel(name: MessageChannelName): BroadcastChannel | undefined {
-    const existing = this.channels.get(name);
-    if (existing) {
-      return existing;
+  private listenOnChannel(name: MessageChannelName): void {
+    if (this.channels.has(name)) {
+      return;
     }
+    const channel = this.openChannel(name);
+    if (!channel) {
+      return;
+    }
+    channel.addEventListener('message', (event) => this.dispatch(event, name));
+    this.channels.set(name, channel);
+  }
+
+  /** Opens a channel, or returns `undefined` where `BroadcastChannel` is unavailable or blocked. */
+  private openChannel(name: MessageChannelName): BroadcastChannel | undefined {
     const BroadcastChannelCtor = this.window?.BroadcastChannel;
     if (!BroadcastChannelCtor) {
       return undefined;
     }
-    let channel: BroadcastChannel;
     try {
-      channel = new BroadcastChannelCtor(name);
+      return new BroadcastChannelCtor(name);
     } catch (error) {
       // E.g. NotSupportedError in opaque origins (sandboxed iframes), SecurityError when storage is
       // blocked. Fall back to window messages only.
@@ -162,14 +190,12 @@ export class MessagingService {
       }
       return undefined;
     }
-    channel.addEventListener('message', (event) => this.dispatch(event, 'other-tab', name));
-    this.channels.set(name, channel);
-    return channel;
   }
 
-  private dispatch(event: MessageEvent, origin: MessageOrigin, channel?: MessageChannelName): void {
+  /** Delivers a window message (`channel` undefined) or a message received on `channel`. */
+  private dispatch(event: MessageEvent, channel?: MessageChannelName): void {
     // Broadcast channels only connect same-origin contexts; window messages can come from any.
-    const isForeign = origin === 'current-tab' && event.origin !== this.window?.location.origin;
+    const isForeign = channel === undefined && event.origin !== this.window?.location.origin;
 
     // Iterate over a copy so subscriptions added by a callback don't receive this event, and skip
     // subscribers that an earlier callback removed (directly or by destroying their owner).
@@ -196,7 +222,7 @@ export class MessagingService {
 
       if (resolved && subscriber.messages.has(resolved[0])) {
         try {
-          subscriber.callback(resolved[0], resolved[1], origin, event);
+          subscriber.callback(resolved[0], resolved[1], event);
         } catch (error) {
           this.errorHandler.handleError(error);
         }
